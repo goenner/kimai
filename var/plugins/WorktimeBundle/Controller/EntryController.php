@@ -73,6 +73,12 @@ final class EntryController extends AbstractController
             return $this->redirectIndex();
         }
 
+        if ([] !== $blocks->findOverlapping($user, $start, $end, null)) {
+            $this->addFlash('error', 'Der Zeitraum überschneidet sich mit einer bestehenden Buchung.');
+
+            return $this->redirectIndex();
+        }
+
         $block = new WorkBlock();
         $block->setUser($user);
         $block->setStart($start);
@@ -129,6 +135,12 @@ final class EntryController extends AbstractController
 
                 return $this->redirectIndex();
             }
+        }
+
+        if (null !== $end && [] !== $blocks->findOverlapping($user, $start, $end, $block->getId())) {
+            $this->addFlash('error', 'Der Zeitraum überschneidet sich mit einer bestehenden Buchung.');
+
+            return $this->redirectIndex();
         }
 
         $old = [

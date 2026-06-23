@@ -45,6 +45,29 @@ class WorkBlockRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Blocks of the user whose [start, end) intersects [start, end), optionally
+     * excluding one block id. Open blocks (end IS NULL) are treated as open-ended.
+     *
+     * @return WorkBlock[]
+     */
+    public function findOverlapping(User $user, \DateTimeInterface $start, \DateTimeInterface $end, ?int $excludeId): array
+    {
+        $qb = $this->createQueryBuilder('b')
+            ->andWhere('b.user = :user')
+            ->andWhere('b.start < :end')
+            ->andWhere('b.end IS NULL OR b.end > :start')
+            ->setParameter('user', $user)
+            ->setParameter('start', $start)
+            ->setParameter('end', $end);
+
+        if (null !== $excludeId) {
+            $qb->andWhere('b.id != :excludeId')->setParameter('excludeId', $excludeId);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
     public function save(WorkBlock $block): void
     {
         $em = $this->getEntityManager();
