@@ -15,7 +15,7 @@ use KimaiPlugin\WorktimeBundle\Repository\ContractRepository;
 
 #[ORM\Entity(repositoryClass: ContractRepository::class)]
 #[ORM\Table(name: 'kimai2_worktime_contract')]
-#[ORM\UniqueConstraint(columns: ['user_id'])]
+#[ORM\UniqueConstraint(name: 'UNIQ_worktime_contract_user', columns: ['user_id'])]
 class Contract
 {
     #[ORM\Id]
