@@ -1,5 +1,6 @@
 includes:
     - %rootDir%/../phpstan-doctrine/extension.neon
+    - %rootDir%/../phpstan-doctrine/rules.neon
 
 parameters:
     level: 9
