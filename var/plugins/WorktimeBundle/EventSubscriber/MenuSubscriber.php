@@ -37,7 +37,7 @@ final class MenuSubscriber implements EventSubscriberInterface
 
         if ($this->security->isGranted('worktime_manage')) {
             $event->getSystemMenu()->addChild(
-                new MenuItemModel('worktime_absences_admin', 'Urlaubsanträge', 'worktime_absences_admin', [], 'fas fa-umbrella-beach')
+                new MenuItemModel('worktime_absences_admin', 'Urlaubsanträge', 'worktime_absences_admin', [], 'fas fa-clipboard-check')
             );
         }
     }

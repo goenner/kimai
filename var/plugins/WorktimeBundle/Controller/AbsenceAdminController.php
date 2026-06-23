@@ -71,6 +71,12 @@ final class AbsenceAdminController extends AbstractController
             throw $this->createNotFoundException();
         }
 
+        if (Absence::STATUS_OPEN !== $absence->getStatus()) {
+            $this->addFlash('error', 'Dieser Antrag wurde bereits entschieden.');
+
+            return $this->redirectIndex();
+        }
+
         /** @var User $admin */
         $admin = $this->getUser();
         $absence->setStatus($status);

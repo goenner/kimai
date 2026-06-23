@@ -101,6 +101,12 @@ final class VacationController extends AbstractController
             return new RedirectResponse($this->generateUrl('worktime_vacation'));
         }
 
+        if ($start->format('Y') !== $end->format('Y')) {
+            $this->addFlash('error', 'Bitte Urlaub über den Jahreswechsel in zwei Anträge aufteilen (einen pro Jahr).');
+
+            return new RedirectResponse($this->generateUrl('worktime_vacation'));
+        }
+
         $absence = new Absence(new \DateTimeImmutable('now'));
         $absence->setUser($user);
         $absence->setType(Absence::TYPE_VACATION);
