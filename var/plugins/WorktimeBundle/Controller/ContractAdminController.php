@@ -38,9 +38,8 @@ final class ContractAdminController extends AbstractController
     }
 
     #[Route(path: '/{id}/edit', name: 'worktime_admin_contract_edit', methods: ['GET', 'POST'])]
-    public function edit(#[MapEntity(id: 'id')] User $id, Request $request, ContractRepository $contracts): Response
+    public function edit(#[MapEntity(id: 'id')] User $user, Request $request, ContractRepository $contracts): Response
     {
-        $user = $id;
         $contract = $contracts->findForUser($user);
         if ($contract === null) {
             $contract = new Contract();
