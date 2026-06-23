@@ -63,6 +63,27 @@ class AbsenceRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Approved absences for the user that intersect [from, to] (by date).
+     *
+     * @return Absence[]
+     */
+    public function findApprovedForUserInRange(User $user, \DateTimeInterface $from, \DateTimeInterface $to): array
+    {
+        return $this->createQueryBuilder('a')
+            ->andWhere('a.user = :user')
+            ->andWhere('a.status = :status')
+            ->andWhere('a.startDate <= :to')
+            ->andWhere('a.endDate >= :from')
+            ->setParameter('user', $user)
+            ->setParameter('status', Absence::STATUS_APPROVED)
+            ->setParameter('from', $from)
+            ->setParameter('to', $to)
+            ->orderBy('a.startDate', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function save(Absence $absence): void
     {
         $em = $this->getEntityManager();
