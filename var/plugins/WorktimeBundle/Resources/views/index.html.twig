@@ -82,22 +82,22 @@
         }
         .wt-punch--in:hover { background: #28b39a; }
 
-        /* IN state (on the clock) — the signature: card goes navy + live mint timer */
+        /* IN state — running clock: SICODA mint background (signature) */
         .wt-hero--in {
-            background: radial-gradient(120% 140% at 50% -10%, var(--navy) 0%, var(--navy-deep) 70%);
-            border-color: transparent; color: #cdd9e8;
+            background: radial-gradient(120% 140% at 50% -10%, #34d6b8 0%, var(--mint) 55%, #20a48d 100%);
+            border-color: transparent; color: #06312b;
         }
-        .wt-hero--in .wt-hero__pill { background: rgba(46,196,169,.16); color: var(--mint); }
-        .wt-hero--in .wt-hero__clock { color: var(--white); font-size: clamp(3.2rem, 12vw, 4.6rem); }
-        .wt-hero--in .wt-hero__sub { color: #9fb1c6; }
+        .wt-hero--in .wt-hero__pill { background: rgba(6,49,43,.14); color: #06312b; }
+        .wt-hero--in .wt-hero__clock { color: #06312b; font-size: clamp(3.2rem, 12vw, 4.6rem); }
+        .wt-hero--in .wt-hero__sub { color: #0a4a40; }
         .wt-punch--out {
-            background: var(--white); color: var(--navy);
-            box-shadow: 0 8px 22px -10px rgba(0,0,0,.5);
+            background: #06312b; color: #fff;
+            box-shadow: 0 10px 24px -10px rgba(6,49,43,.6);
         }
-        .wt-punch--out:hover { background: #eef3f8; }
+        .wt-punch--out:hover { background: #0a4a40; }
 
         .wt-dot { width: .55rem; height: .55rem; border-radius: 999px; background: var(--mint); display: inline-block; }
-        .wt-hero--in .wt-dot { box-shadow: 0 0 0 0 rgba(46,196,169,.7); }
+        .wt-hero--in .wt-dot { background: #06312b; }
 
         /* ---- Stat tiles ---- */
         .wt-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
@@ -127,10 +127,27 @@
         @media (prefers-reduced-motion: no-preference) {
             .wt-hero--in .wt-dot { animation: wt-pulse 1.8s ease-out infinite; }
             @keyframes wt-pulse {
-                0% { box-shadow: 0 0 0 0 rgba(46,196,169,.55); }
-                100% { box-shadow: 0 0 0 .8rem rgba(46,196,169,0); }
+                0% { box-shadow: 0 0 0 0 rgba(6,49,43,.45); }
+                100% { box-shadow: 0 0 0 .8rem rgba(6,49,43,0); }
             }
         }
+
+        .wt-sessions__head { display: flex; align-items: center; justify-content: space-between; margin: 0 .25rem .75rem; gap: 1rem; }
+        .wt-add {
+            -webkit-appearance: none; appearance: none; cursor: pointer;
+            border: 1px solid var(--mint); background: var(--white); color: var(--mint-700);
+            font-family: var(--body); font-weight: 600; font-size: .85rem;
+            border-radius: 999px; padding: .5rem 1rem; display: inline-flex; align-items: center; gap: .45rem;
+        }
+        .wt-add:hover { background: rgba(46,196,169,.08); }
+        .wt-add:focus-visible { outline: 3px solid var(--mint); outline-offset: 2px; }
+        .wt-row { grid-template-columns: auto 1fr auto auto; }
+        .wt-edit {
+            -webkit-appearance: none; appearance: none; cursor: pointer;
+            border: 0; background: transparent; color: #9aa7b4; padding: .35rem .5rem; border-radius: 8px;
+        }
+        .wt-edit:hover { color: var(--navy); background: var(--ice); }
+        .wt-edit:focus-visible { outline: 2px solid var(--mint); outline-offset: 1px; }
     </style>
 {% endblock %}
 
@@ -182,7 +199,14 @@
         </div>
 
         <div class="wt-sessions">
-            <div class="wt-sessions__title">{{ 'Heutige Stempelzeiten'|trans }}</div>
+            <div class="wt-sessions__head">
+                <div class="wt-sessions__title">{{ 'Heutige Stempelzeiten'|trans }}</div>
+                <button type="button" class="wt-add"
+                        data-bs-toggle="modal" data-bs-target="#wtEntryModal"
+                        data-mode="create" data-action="{{ path('worktime_entry_create') }}">
+                    <i class="{{ 'create'|icon }}"></i> {{ 'Zeit eintragen'|trans }}
+                </button>
+            </div>
             {% for block in today_blocks %}
                 <div class="wt-row {{ block.end is null ? 'wt-row--live' : '' }}">
                     <span class="wt-row__bullet"></span>
@@ -196,10 +220,54 @@
                         {% endif %}
                     </span>
                     <span class="wt-row__dur">{{ block.durationSeconds is null ? '·' : block.durationSeconds|duration }}</span>
+                    <button type="button" class="wt-edit" title="{{ 'Bearbeiten'|trans }}"
+                            data-bs-toggle="modal" data-bs-target="#wtEntryModal"
+                            data-mode="edit"
+                            data-action="{{ path('worktime_entry_edit', {id: block.id}) }}"
+                            data-delete="{{ path('worktime_entry_delete', {id: block.id}) }}"
+                            data-start="{{ block.start|date('Y-m-d\\TH:i', app.user.timezone) }}"
+                            data-end="{{ block.end is null ? '' : block.end|date('Y-m-d\\TH:i', app.user.timezone) }}">
+                        <i class="{{ 'edit'|icon }}"></i>
+                    </button>
                 </div>
             {% else %}
                 <div class="wt-empty">{{ 'Noch keine Buchung heute.'|trans }}</div>
             {% endfor %}
+        </div>
+
+        {# Reusable create/edit modal #}
+        <div class="modal fade" id="wtEntryModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" data-wt-title>{{ 'Zeit eintragen'|trans }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'Schließen'|trans }}"></button>
+                    </div>
+                    <form method="post" data-wt-form>
+                        <div class="modal-body">
+                            <input type="hidden" name="_token" value="{{ csrf_token('worktime.entry') }}">
+                            <div class="mb-3">
+                                <label class="form-label" for="wtStart">{{ 'Beginn'|trans }}</label>
+                                <input type="datetime-local" class="form-control" id="wtStart" name="start" required>
+                            </div>
+                            <div class="mb-1">
+                                <label class="form-label" for="wtEnd">{{ 'Ende'|trans }}</label>
+                                <input type="datetime-local" class="form-control" id="wtEnd" name="end">
+                            </div>
+                        </div>
+                        <div class="modal-footer justify-content-between">
+                            <button type="submit" class="btn" data-wt-delete-btn
+                                    formmethod="post" formaction="" hidden>
+                                <i class="{{ 'delete'|icon }}"></i> {{ 'Löschen'|trans }}
+                            </button>
+                            <span class="d-flex gap-2 ms-auto">
+                                <button type="button" class="btn btn-link" data-bs-dismiss="modal">{{ 'Abbrechen'|trans }}</button>
+                                <button type="submit" class="btn btn-primary">{{ 'Speichern'|trans }}</button>
+                            </span>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 {% endblock %}
@@ -240,6 +308,46 @@
             }
             tick();
             setInterval(tick, 1000);
+        })();
+    </script>
+    <script>
+        (function () {
+            var modal = document.getElementById('wtEntryModal');
+            if (!modal) { return; }
+            var form = modal.querySelector('[data-wt-form]');
+            var title = modal.querySelector('[data-wt-title]');
+            var startEl = modal.querySelector('#wtStart');
+            var endEl = modal.querySelector('#wtEnd');
+            var delBtn = modal.querySelector('[data-wt-delete-btn]');
+
+            function nowLocal() {
+                var d = new Date();
+                d.setSeconds(0, 0);
+                var off = d.getTimezoneOffset();
+                var local = new Date(d.getTime() - off * 60000);
+                return local.toISOString().slice(0, 16);
+            }
+
+            modal.addEventListener('show.bs.modal', function (event) {
+                var btn = event.relatedTarget;
+                if (!btn) { return; }
+                var mode = btn.getAttribute('data-mode');
+                form.setAttribute('action', btn.getAttribute('data-action') || '');
+
+                if (mode === 'edit') {
+                    title.textContent = 'Eintrag bearbeiten';
+                    startEl.value = btn.getAttribute('data-start') || '';
+                    endEl.value = btn.getAttribute('data-end') || '';
+                    delBtn.setAttribute('formaction', btn.getAttribute('data-delete') || '');
+                    delBtn.hidden = false;
+                } else {
+                    title.textContent = 'Zeit eintragen';
+                    startEl.value = nowLocal();
+                    endEl.value = '';
+                    delBtn.removeAttribute('formaction');
+                    delBtn.hidden = true;
+                }
+            });
         })();
     </script>
 {% endblock %}
