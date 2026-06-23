@@ -23,6 +23,9 @@ class AuditLog
     public const ACTION_BLOCK_CREATE = 'block_create';
     public const ACTION_BLOCK_EDIT = 'block_edit';
     public const ACTION_BLOCK_DELETE = 'block_delete';
+    public const ACTION_ABSENCE_REQUEST = 'absence_request';
+    public const ACTION_ABSENCE_APPROVE = 'absence_approve';
+    public const ACTION_ABSENCE_REJECT = 'absence_reject';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
