@@ -134,23 +134,30 @@ Mitarbeiter sehen **nur ihre eigenen** Abwesenheiten. Der teamweite Abwesenheits
 
 ---
 
-## 6. Erfassung (so einfach wie möglich)
+## 6. Erfassung — ausschließlich Punch In/Out
 
-**Punch In/Out ist der Standardweg:**
+**Leitsatz (verbindlich):** Die Arbeitszeiterfassung ist **vollständig getrennt** von Kimais Projektzeiterfassung — eigener Button, eigener Flow, eigene Daten. Sie wird **niemals** in das Projektzeit-Formular integriert, und das Projektzeit-Formular wird nicht angefasst.
+
+**Das einzige Buchungs-UI für Mitarbeiter ist ein Punch-In/Out-Button:**
+- **Eigener Button in der Kopfzeile, direkt neben dem bestehenden Projektzeit-Timer** (eigenes Icon). Das ist die primäre und einzige Buchungsoberfläche.
 - **Einstempeln** → öffnet einen `WorkBlock` (Beginn = jetzt, Ende = null), Quelle `punch`.
 - **Ausstempeln** → schließt den offenen Block (Ende = jetzt).
 - Mehrmals/Tag möglich → mehrere Blöcke; Zeit dazwischen = automatisch Pause.
-- Button in der Kopfzeile (siehe Risiko #1) + Fallback-Button auf der Plugin-Seite. Responsive (mobil bedienbar).
+- **Kein** Projekt, **keine** Tätigkeit, **keine** manuelle Blockeingabe im Buchungs-UI. Nur Stempeln.
+- Responsive (mobil bedienbar). Fallback: ein gleichwertiger Stempel-Button auf der Plugin-Seite, falls die Kopfzeilen-Injektion am Theme scheitert (siehe Risiko #1).
 
-**Korrekturen:**
-- Zeiten dürfen **jederzeit nachträglich korrigiert** werden (Beginn/Ende ändern, Block anlegen/löschen) — solange der Monat **nicht gesperrt** ist.
+> Dies ersetzt die frühere Idee „mehrere Blöcke wie die Projektzeit manuell erfassen". Blöcke entstehen ausschließlich durch Stempeln (oder Auto-Abschluss/Korrektur) — nicht durch ein manuelles Mehrblock-Eingabeformular.
+
+**Eigene Stempel-Ansicht + Korrektur (Mitarbeiter):**
+- Der Mitarbeiter hat eine **eigene Ansicht seiner Stempelzeiten** (heute / letzte Tage) und kann sie dort **nachträglich korrigieren** (Beginn/Ende ändern, fehlenden Block anlegen, falschen löschen) — solange der Monat **nicht gesperrt** ist.
+- Dies ist getrennt vom Buchungs-Button: Buchen = nur Punch; Korrigieren = separate Liste.
+- Der Admin kann die Stempel aller Mitarbeiter ebenso einsehen und korrigieren.
 - Gesperrte Monate sind eingefroren; Korrektur erfordert vorheriges Entsperren durch den Admin.
 - **Jede** Buchung und Korrektur landet im AuditLog (alt → neu, wer, wann).
 
 **Vergessenes Ausstempeln:**
 - Ein **nächtlicher Cron-Command** schließt offene Blöcke (Ende = tägliche Vertrags-Endzeit) und setzt `needsReview = true`.
-- Diese Blöcke werden in der Ansicht sichtbar als **„zu prüfen"** markiert (kein separates Benachrichtigungssystem).
-- MA/Admin korrigieren sie anschließend manuell.
+- Diese Blöcke werden in der eigenen Stempel-Ansicht sichtbar als **„zu prüfen"** markiert (kein separates Benachrichtigungssystem) und vom MA/Admin korrigiert.
 
 ---
 
@@ -246,8 +253,9 @@ Jahresanspruch + Übertrag − genehmigte Urlaubstage + Korrekturen (Konto Urlau
 
 - **Strategie:** Eigenständiges Plugin, eigene Tabellen + Fachlogik. *Grund:* Unabhängigkeit von Core-Updates.
 - **Standardfunktionen (Mittelweg):** Daten & Fachlogik bleiben eigen (updatefest); technische Standard-Bausteine (PDF, Theme, Formulare, Tabellen, Menü, Rechte, Übersetzungen, yasumi) werden wiederverwendet, wo sie nur lose koppeln (siehe §4.1). Punch In/Out bleibt Eigenbau.
-- **Ist-Erfassung:** Eigene Tageserfassung im Plugin (keine Kimai-Timesheets) — primär **Punch In/Out**.
-- **Tages-Granularität:** Mehrere Blöcke (Beginn–Ende), Lücken = Pause.
+- **Ist-Erfassung:** Eigene Erfassung im Plugin, **vollständig getrennt** von Kimai-Projektzeit. Das **einzige** Buchungs-UI ist ein **Punch-In/Out-Button in der Kopfzeile, neben dem Projektzeit-Timer** — kein Projekt/Tätigkeit, keine manuelle Mehrblock-Eingabe. (Ersetzt die frühere „mehrere Blöcke manuell wie Projektzeit"-Idee.)
+- **Tages-Granularität:** Mehrere Punch-Blöcke (Beginn–Ende) pro Tag, Lücken = Pause — entstehen nur durch Stempeln/Auto-Abschluss/Korrektur.
+- **Mitarbeiter-Korrektur:** MA hat eigene Stempel-Ansicht und kann eigene Zeiten nachträglich korrigieren (offene Monate); Admin sieht/korrigiert alle.
 - **Vertrag:** Ein aktueller Vertrag pro MA (überschreibend); gesperrte Monate via Snapshot eingefroren.
 - **Abwesenheiten:** Antrags-Workflow (MA → Admin). Sichtbarkeit: Admin alle, MA nur eigene.
 - **Vergessenes Ausstempeln:** Nächtlicher Auto-Abschluss + „zu prüfen"-Flag.
