@@ -61,4 +61,52 @@ class WorkBlockMathTest extends TestCase
         $now = new \DateTimeImmutable('2026-06-01 14:00:00');            // +1h
         self::assertSame(18000, (new WorkBlockMath())->netSeconds($blocks, $now)); // 5h
     }
+
+    public function testBreakEmptyIsZero(): void
+    {
+        self::assertSame(0, (new WorkBlockMath())->breakSeconds([]));
+    }
+
+    public function testBreakSingleBlockIsZero(): void
+    {
+        $blocks = [$this->block('2026-06-01 08:00:00', '2026-06-01 12:00:00')];
+        self::assertSame(0, (new WorkBlockMath())->breakSeconds($blocks));
+    }
+
+    public function testBreakBetweenTwoBlocks(): void
+    {
+        $blocks = [
+            $this->block('2026-06-01 08:00:00', '2026-06-01 12:00:00'),
+            $this->block('2026-06-01 12:30:00', '2026-06-01 16:30:00'),
+        ];
+        self::assertSame(1800, (new WorkBlockMath())->breakSeconds($blocks)); // 30 min
+    }
+
+    public function testBreakSumsMultipleGaps(): void
+    {
+        $blocks = [
+            $this->block('2026-06-01 08:00:00', '2026-06-01 10:00:00'),
+            $this->block('2026-06-01 10:30:00', '2026-06-01 12:00:00'), // 30 min gap
+            $this->block('2026-06-01 13:00:00', '2026-06-01 15:00:00'), // 60 min gap
+        ];
+        self::assertSame(5400, (new WorkBlockMath())->breakSeconds($blocks)); // 90 min
+    }
+
+    public function testBreakBeforeOpenBlock(): void
+    {
+        $blocks = [
+            $this->block('2026-06-01 08:00:00', '2026-06-01 12:00:00'),
+            $this->block('2026-06-01 13:00:00', null), // running; 60 min gap before it
+        ];
+        self::assertSame(3600, (new WorkBlockMath())->breakSeconds($blocks));
+    }
+
+    public function testBreakIgnoresOverlap(): void
+    {
+        $blocks = [
+            $this->block('2026-06-01 08:00:00', '2026-06-01 12:00:00'),
+            $this->block('2026-06-01 11:00:00', '2026-06-01 13:00:00'), // overlaps -> negative gap ignored
+        ];
+        self::assertSame(0, (new WorkBlockMath())->breakSeconds($blocks));
+    }
 }

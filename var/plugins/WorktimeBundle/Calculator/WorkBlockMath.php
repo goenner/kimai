@@ -31,4 +31,28 @@ final class WorkBlockMath
 
         return $total;
     }
+
+    /**
+     * Sum of the gaps between consecutive closed blocks (the breaks).
+     * Expects blocks ordered by start ascending. An open block ends a run
+     * (no gap counted after it); overlaps contribute nothing.
+     *
+     * @param iterable<WorkBlock> $blocks
+     */
+    public function breakSeconds(iterable $blocks): int
+    {
+        $gap = 0;
+        $prevEnd = null;
+        foreach ($blocks as $block) {
+            if (null !== $prevEnd) {
+                $delta = $block->getStart()->getTimestamp() - $prevEnd;
+                if ($delta > 0) {
+                    $gap += $delta;
+                }
+            }
+            $prevEnd = $block->getEnd()?->getTimestamp();
+        }
+
+        return $gap;
+    }
 }

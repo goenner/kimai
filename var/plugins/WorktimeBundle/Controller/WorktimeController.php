@@ -47,6 +47,7 @@ final class WorktimeController extends AbstractController
             'open_block' => $openBlock,
             'today_blocks' => $todayBlocks,
             'today_seconds' => $math->netSeconds($todayBlocks, $now),
+            'today_break_seconds' => $math->breakSeconds($todayBlocks),
             'server_now' => $now->getTimestamp(),
         ]);
     }
