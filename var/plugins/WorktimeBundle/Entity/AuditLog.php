@@ -26,6 +26,7 @@ class AuditLog
     public const ACTION_ABSENCE_REQUEST = 'absence_request';
     public const ACTION_ABSENCE_APPROVE = 'absence_approve';
     public const ACTION_ABSENCE_REJECT = 'absence_reject';
+    public const ACTION_BALANCE_CORRECTION = 'balance_correction';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
