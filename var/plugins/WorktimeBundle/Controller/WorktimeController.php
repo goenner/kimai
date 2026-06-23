@@ -33,6 +33,11 @@ final class WorktimeController extends AbstractController
         $todayStart = new \DateTimeImmutable('today', $tz);
         $todayEnd = $todayStart->modify('+1 day');
 
+        // The today table/sum filter on block start within today's local window.
+        // A block started before midnight and still open (forgotten punch-out) will
+        // therefore not appear here until the Plan 3 nightly auto-close splits/closes it.
+        // The status badge + button below intentionally derive from $openBlock (not the
+        // window) so they stay correct even for such an overnight-open block.
         $todayBlocks = $blocks->findForUserBetween($user, $todayStart, $todayEnd);
         $openBlock = $blocks->findOpenBlock($user);
         $now = new \DateTimeImmutable('now');
