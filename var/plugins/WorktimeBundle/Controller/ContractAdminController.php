@@ -41,7 +41,7 @@ final class ContractAdminController extends AbstractController
     public function edit(#[MapEntity(id: 'id')] User $user, Request $request, ContractRepository $contracts): Response
     {
         $contract = $contracts->findForUser($user);
-        if ($contract === null) {
+        if (null === $contract) {
             $contract = new Contract();
             $contract->setUser($user);
         }
@@ -52,7 +52,7 @@ final class ContractAdminController extends AbstractController
         $weekdays = [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday', 7 => 'Sunday'];
         if (!$request->isMethod('POST')) {
             foreach ($weekdays as $iso => $name) {
-                $form->get('workHours' . $name)->setData((int) round($contract->getWorkHoursForWeekday($iso) / 3600));
+                $form->get('workHours'.$name)->setData((int) round($contract->getWorkHoursForWeekday($iso) / 3600));
             }
         }
 
@@ -60,7 +60,8 @@ final class ContractAdminController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             foreach ($weekdays as $iso => $name) {
-                $hours = (int) ($form->get('workHours' . $name)->getData() ?? 0);
+                $raw = $form->get('workHours'.$name)->getData();
+                $hours = \is_int($raw) ? $raw : 0;
                 $contract->setWorkHoursForWeekday($iso, $hours * 3600);
             }
             $contracts->save($contract);

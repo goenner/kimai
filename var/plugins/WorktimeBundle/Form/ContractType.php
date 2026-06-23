@@ -25,7 +25,7 @@ class ContractType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         foreach (['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as $day) {
-            $builder->add('workHours' . $day, IntegerType::class, [
+            $builder->add('workHours'.$day, IntegerType::class, [
                 'label' => $day,
                 'mapped' => false,
                 'required' => false,

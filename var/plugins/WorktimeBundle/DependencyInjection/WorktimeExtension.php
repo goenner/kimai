@@ -22,7 +22,7 @@ class WorktimeExtension extends AbstractPluginExtension implements PrependExtens
         $config = $this->processConfiguration($configuration, $configs);
         $this->registerBundleConfiguration($container, $config);
 
-        $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
+        $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
         $loader->load('services.yaml');
     }
 
@@ -50,7 +50,7 @@ class WorktimeExtension extends AbstractPluginExtension implements PrependExtens
                 'mappings' => [
                     'WorktimeBundle' => [
                         'type' => 'attribute',
-                        'dir' => __DIR__ . '/../Entity',
+                        'dir' => __DIR__.'/../Entity',
                         'prefix' => 'KimaiPlugin\\WorktimeBundle\\Entity',
                         'alias' => 'WorktimeBundle',
                         'is_bundle' => false,
@@ -61,7 +61,7 @@ class WorktimeExtension extends AbstractPluginExtension implements PrependExtens
 
         $container->prependExtensionConfig('doctrine_migrations', [
             'migrations_paths' => [
-                'KimaiPlugin\\WorktimeBundle\\Migrations' => __DIR__ . '/../Migrations',
+                'KimaiPlugin\\WorktimeBundle\\Migrations' => __DIR__.'/../Migrations',
             ],
         ]);
     }

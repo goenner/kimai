@@ -22,12 +22,12 @@ final class WorktimeCalculator
         $d = $day->date->format('Y-m-d');
 
         $start = $contract->getEmploymentStart();
-        if ($start !== null && $d < $start->format('Y-m-d')) {
+        if (null !== $start && $d < $start->format('Y-m-d')) {
             return 0;
         }
 
         $end = $contract->getEmploymentEnd();
-        if ($end !== null && $d > $end->format('Y-m-d')) {
+        if (null !== $end && $d > $end->format('Y-m-d')) {
             return 0;
         }
 

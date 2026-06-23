@@ -97,7 +97,7 @@ class Contract
             5 => $this->workHoursFriday,
             6 => $this->workHoursSaturday,
             7 => $this->workHoursSunday,
-            default => throw new \InvalidArgumentException('ISO weekday must be 1..7, got ' . $isoWeekday),
+            default => throw new \InvalidArgumentException('ISO weekday must be 1..7, got '.$isoWeekday),
         };
     }
 
@@ -111,7 +111,7 @@ class Contract
             5 => $this->workHoursFriday = $seconds,
             6 => $this->workHoursSaturday = $seconds,
             7 => $this->workHoursSunday = $seconds,
-            default => throw new \InvalidArgumentException('ISO weekday must be 1..7, got ' . $isoWeekday),
+            default => throw new \InvalidArgumentException('ISO weekday must be 1..7, got '.$isoWeekday),
         };
     }
 

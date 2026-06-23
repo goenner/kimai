@@ -1,0 +1,15 @@
+includes:
+    - %rootDir%/../phpstan-doctrine/extension.neon
+
+parameters:
+    level: 9
+    paths:
+        - .
+    excludePaths:
+        - vendor (?)
+        - Tests/
+    bootstrapFiles:
+        - ../../../vendor/autoload.php
+    doctrine:
+        objectManagerLoader: ../../../tests/phpstan-doctrine.php
+        allowNullablePropertyForRequiredField: true
