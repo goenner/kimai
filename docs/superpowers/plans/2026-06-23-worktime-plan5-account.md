@@ -18,6 +18,7 @@
 - **Feiertage werden noch NICHT berücksichtigt** (kein yasumi): `DayFacts.publicHoliday=false`; an Feiertagen ist das Soll vorerst die Vertragsstunden — in der Ansicht als bekannte Einschränkung kennzeichnen. (Folgeplan korrigiert das.)
 - Abwesenheits-Gutschrift: genehmigter Urlaub an einem Arbeitstag schreibt das Tagessoll gut (halber Tag = halbes Soll), macht den Tag also soll-neutral.
 - Korrekturen + Genehmigungen + Überlappungs-Ablehnungen: keine stillen Datenfehler; Korrekturen werden auditiert. Admin-Konto-Einsicht/Korrektur erfordert `worktime_manage`; eigenes Konto `worktime_view_own`.
+- **Überstunden-Warnschwelle:** Sobald der kumulierte Saldo ≥ **+6 h** (21600 s) ist, erscheint ein **deutlicher Warnhinweis** in der Konto-Ansicht (Monat und Jahr). Schwelle als Controller-Konstante `OVERTIME_WARN_SECONDS = 21600`, an die Views als `warn_overtime` (bool) + `warn_threshold_seconds` durchgereicht.
 - Prod: Plugin gehört `www-data`; nach Änderungen `sudo -u www-data php bin/console cache:clear`.
 
 ## Scope / Abgrenzung
@@ -973,6 +974,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('worktime_view_own')]
 final class AccountController extends AbstractController
 {
+    private const OVERTIME_WARN_SECONDS = 21600; // 6 h — show a prominent warning at/above this balance
+
     /**
      * Resolve the user being viewed: a `user` query param requires worktime_manage;
      * otherwise the current user.
@@ -1020,6 +1023,8 @@ final class AccountController extends AbstractController
             'prev' => $current->modify('-1 month'),
             'next' => $current->modify('+1 month'),
             'data' => $data,
+            'warn_overtime' => $data['cumulativeSeconds'] >= self::OVERTIME_WARN_SECONDS,
+            'warn_threshold_seconds' => self::OVERTIME_WARN_SECONDS,
         ]);
     }
 }
@@ -1040,6 +1045,15 @@ final class AccountController extends AbstractController
 
 {% block main %}
     {% import _self as fmt %}
+    {% if warn_overtime %}
+        <div class="alert alert-danger d-flex align-items-center" role="alert">
+            <i class="fas fa-triangle-exclamation me-2 fa-lg"></i>
+            <div>
+                <strong>{{ 'Achtung – hoher Überstunden-Saldo'|trans }}:</strong>
+                {{ 'Der Saldo liegt bei'|trans }} {{ fmt.hm(data.cumulativeSeconds) }} h (≥ 6:00 h). {{ 'Bitte Freizeitausgleich einplanen.'|trans }}
+            </div>
+        </div>
+    {% endif %}
     {% if not data.has_contract %}
         <div class="alert alert-warning">{{ 'Für diesen Nutzer ist kein Vertrag hinterlegt — kein Soll berechenbar.'|trans }}</div>
     {% endif %}
@@ -1048,7 +1062,7 @@ final class AccountController extends AbstractController
     <div class="row row-cards mb-3">
         <div class="col-sm-3"><div class="card"><div class="card-body">
             <div class="text-muted small text-uppercase">{{ 'Saldo gesamt'|trans }}</div>
-            <div class="h1 mb-0 {{ data.cumulativeSeconds < 0 ? 'text-danger' : 'text-success' }}">{{ fmt.hm(data.cumulativeSeconds) }} h</div>
+            <div class="h1 mb-0 {{ (data.cumulativeSeconds < 0 or warn_overtime) ? 'text-danger' : 'text-success' }}">{{ fmt.hm(data.cumulativeSeconds) }} h</div>
         </div></div></div>
         <div class="col-sm-3"><div class="card"><div class="card-body">
             <div class="text-muted small text-uppercase">{{ 'Saldo Monat'|trans }}</div>
@@ -1182,11 +1196,13 @@ In `var/plugins/WorktimeBundle/Controller/AccountController.php`, add these meth
         $user = $this->resolveUser($request, $users);
         $now = new \DateTimeImmutable('now');
         $year = (int) $request->query->get('year', $now->format('Y'));
+        $data = $accounts->yearAccount($user, $year);
 
         return $this->render('@Worktime/account/year.html.twig', [
             'viewed_user' => $user,
             'year' => $year,
-            'data' => $accounts->yearAccount($user, $year),
+            'data' => $data,
+            'warn_overtime' => $data['cumulativeSeconds'] >= self::OVERTIME_WARN_SECONDS,
         ]);
     }
 
@@ -1290,6 +1306,12 @@ In `var/plugins/WorktimeBundle/Resources/views/account/month.html.twig`, BEFORE 
 
 {% block main %}
     {% import _self as fmt %}
+    {% if warn_overtime %}
+        <div class="alert alert-danger d-flex align-items-center" role="alert">
+            <i class="fas fa-triangle-exclamation me-2 fa-lg"></i>
+            <div><strong>{{ 'Achtung – hoher Überstunden-Saldo'|trans }}:</strong> {{ fmt.hm(data.cumulativeSeconds) }} h (≥ 6:00 h). {{ 'Bitte Freizeitausgleich einplanen.'|trans }}</div>
+        </div>
+    {% endif %}
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h3 class="card-title">{{ 'Jahr'|trans }} {{ year }}</h3>
