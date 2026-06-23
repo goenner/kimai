@@ -19,13 +19,15 @@ final class WorktimeCalculator
             return 0;
         }
 
+        $d = $day->date->format('Y-m-d');
+
         $start = $contract->getEmploymentStart();
-        if ($start !== null && $day->date < $start) {
+        if ($start !== null && $d < $start->format('Y-m-d')) {
             return 0;
         }
 
         $end = $contract->getEmploymentEnd();
-        if ($end !== null && $day->date > $end) {
+        if ($end !== null && $d > $end->format('Y-m-d')) {
             return 0;
         }
 

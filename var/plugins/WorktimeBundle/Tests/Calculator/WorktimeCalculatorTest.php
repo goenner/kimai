@@ -118,6 +118,24 @@ class WorktimeCalculatorTest extends TestCase
         self::assertSame(-self::H8, $calc->dailyBalanceSeconds($this->contract(), $facts));
     }
 
+    public function testTargetCountsDayExactlyOnEmploymentStart(): void
+    {
+        $calc = new WorktimeCalculator();
+        $c = $this->contract();
+        $c->setEmploymentStart(new \DateTimeImmutable('2026-06-01')); // the Monday
+        $facts = new DayFacts($this->monday()); // 2026-06-01
+        self::assertSame(self::H8, $calc->targetSeconds($c, $facts));
+    }
+
+    public function testTargetCountsDayExactlyOnEmploymentEnd(): void
+    {
+        $calc = new WorktimeCalculator();
+        $c = $this->contract();
+        $c->setEmploymentEnd(new \DateTimeImmutable('2026-06-01')); // the Monday
+        $facts = new DayFacts($this->monday()); // 2026-06-01
+        self::assertSame(self::H8, $calc->targetSeconds($c, $facts));
+    }
+
     public function testAccumulatedBalanceSumsDaysPlusInitialAndCorrection(): void
     {
         $calc = new WorktimeCalculator();

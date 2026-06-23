@@ -28,7 +28,7 @@ final class ContractAdminController extends AbstractController
     #[Route(path: '', name: 'worktime_admin_contracts', methods: ['GET'])]
     public function index(UserRepository $userRepository, ContractRepository $contracts): Response
     {
-        $users = $userRepository->findBy([], ['username' => 'ASC']);
+        $users = $userRepository->findBy(['enabled' => true], ['username' => 'ASC']);
         $rows = [];
         foreach ($users as $user) {
             $rows[] = ['user' => $user, 'contract' => $contracts->findForUser($user)];
