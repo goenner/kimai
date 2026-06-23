@@ -9,6 +9,12 @@
 namespace KimaiPlugin\WorktimeBundle\Controller;
 
 use App\Controller\AbstractController;
+use App\Entity\User;
+use KimaiPlugin\WorktimeBundle\Calculator\WorkBlockMath;
+use KimaiPlugin\WorktimeBundle\Entity\WorkBlock;
+use KimaiPlugin\WorktimeBundle\Repository\WorkBlockRepository;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -18,8 +24,54 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 final class WorktimeController extends AbstractController
 {
     #[Route(path: '', name: 'worktime_index', methods: ['GET'])]
-    public function index(): Response
+    public function index(WorkBlockRepository $blocks, WorkBlockMath $math): Response
     {
-        return $this->render('@Worktime/index.html.twig', []);
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $tz = new \DateTimeZone($user->getTimezone());
+        $todayStart = new \DateTimeImmutable('today', $tz);
+        $todayEnd = $todayStart->modify('+1 day');
+
+        $todayBlocks = $blocks->findForUserBetween($user, $todayStart, $todayEnd);
+        $openBlock = $blocks->findOpenBlock($user);
+        $now = new \DateTimeImmutable('now');
+
+        return $this->render('@Worktime/index.html.twig', [
+            'open_block' => $openBlock,
+            'today_blocks' => $todayBlocks,
+            'today_seconds' => $math->netSeconds($todayBlocks, $now),
+        ]);
+    }
+
+    #[Route(path: '/punch', name: 'worktime_punch', methods: ['POST'])]
+    #[IsGranted('worktime_edit_own')]
+    public function punch(Request $request, WorkBlockRepository $blocks): Response
+    {
+        if (!$this->isCsrfTokenValid('worktime.punch', (string) $request->request->get('_token'))) {
+            $this->addFlash('error', 'Ungültiges Token.');
+
+            return new RedirectResponse($this->generateUrl('worktime_index'));
+        }
+
+        /** @var User $user */
+        $user = $this->getUser();
+        $now = new \DateTimeImmutable('now');
+        $open = $blocks->findOpenBlock($user);
+
+        if (null !== $open) {
+            $open->setEnd($now);
+            $blocks->save($open);
+            $this->addFlash('success', 'Ausgestempelt.');
+        } else {
+            $block = new WorkBlock();
+            $block->setUser($user);
+            $block->setStart($now);
+            $block->setSource(WorkBlock::SOURCE_PUNCH);
+            $blocks->save($block);
+            $this->addFlash('success', 'Eingestempelt.');
+        }
+
+        return new RedirectResponse($this->generateUrl('worktime_index'));
     }
 }
