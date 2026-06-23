@@ -12,6 +12,11 @@ use App\Controller\AbstractController;
 use App\Entity\User;
 use App\Repository\UserRepository;
 use KimaiPlugin\WorktimeBundle\Account\AccountService;
+use KimaiPlugin\WorktimeBundle\Audit\AuditLogger;
+use KimaiPlugin\WorktimeBundle\Entity\AuditLog;
+use KimaiPlugin\WorktimeBundle\Entity\BalanceCorrection;
+use KimaiPlugin\WorktimeBundle\Repository\BalanceCorrectionRepository;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -72,5 +77,69 @@ final class AccountController extends AbstractController
             'warn_overtime' => $data['cumulativeSeconds'] >= self::OVERTIME_WARN_SECONDS,
             'warn_threshold_seconds' => self::OVERTIME_WARN_SECONDS,
         ]);
+    }
+
+    #[Route(path: '/year', name: 'worktime_account_year', methods: ['GET'])]
+    public function year(Request $request, AccountService $accounts, UserRepository $users): Response
+    {
+        $user = $this->resolveUser($request, $users);
+        $now = new \DateTimeImmutable('now');
+        $year = (int) $request->query->get('year', $now->format('Y'));
+        $data = $accounts->yearAccount($user, $year);
+
+        return $this->render('@Worktime/account/year.html.twig', [
+            'viewed_user' => $user,
+            'year' => $year,
+            'data' => $data,
+            'warn_overtime' => $data['cumulativeSeconds'] >= self::OVERTIME_WARN_SECONDS,
+        ]);
+    }
+
+    #[Route(path: '/correct', name: 'worktime_account_correct', methods: ['POST'])]
+    #[IsGranted('worktime_manage')]
+    public function correct(Request $request, UserRepository $users, BalanceCorrectionRepository $corrections, AuditLogger $audit): Response
+    {
+        if (!$this->isCsrfTokenValid('worktime.correct', (string) $request->request->get('_token'))) {
+            $this->addFlash('error', 'Ungültiges Token.');
+
+            return new RedirectResponse($this->generateUrl('worktime_account'));
+        }
+
+        /** @var User $admin */
+        $admin = $this->getUser();
+        $targetUser = $users->find((int) $request->request->get('user'));
+        if (null === $targetUser) {
+            throw $this->createNotFoundException();
+        }
+
+        $tz = new \DateTimeZone($admin->getTimezone());
+        $date = \DateTimeImmutable::createFromFormat('Y-m-d', $request->request->getString('date'), $tz);
+        $hours = (float) str_replace(',', '.', $request->request->getString('hours'));
+        $reason = trim($request->request->getString('reason'));
+
+        if (!$date instanceof \DateTimeImmutable || 0.0 === $hours) {
+            $this->addFlash('error', 'Bitte Datum und eine Stundenzahl ungleich 0 angeben.');
+
+            return new RedirectResponse($this->generateUrl('worktime_account', ['user' => $targetUser->getId()]));
+        }
+
+        $seconds = (int) round($hours * 3600);
+        $correction = new BalanceCorrection(new \DateTimeImmutable('now'));
+        $correction->setUser($targetUser);
+        $correction->setDate($date->setTime(0, 0));
+        $correction->setAccount(BalanceCorrection::ACCOUNT_OVERTIME);
+        $correction->setSeconds($seconds);
+        $correction->setReason('' === $reason ? null : $reason);
+        $correction->setCreatedBy($admin);
+        $corrections->save($correction);
+
+        $audit->log($admin, $targetUser, AuditLog::ACTION_BALANCE_CORRECTION, 'balance_correction', $correction->getId(), [
+            'date' => $date->format('Y-m-d'),
+            'seconds' => $seconds,
+        ]);
+
+        $this->addFlash('success', 'Korrektur gebucht.');
+
+        return new RedirectResponse($this->generateUrl('worktime_account', ['user' => $targetUser->getId()]));
     }
 }

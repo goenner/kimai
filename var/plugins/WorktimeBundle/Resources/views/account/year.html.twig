@@ -1,0 +1,51 @@
+{% extends 'base.html.twig' %}
+
+{% block page_title %}{{ 'Zeitkonto-Jahr'|trans }} — {{ viewed_user.displayName }}{% endblock %}
+
+{% macro hm(seconds) %}{% apply spaceless %}
+    {% set s = seconds < 0 ? -seconds : seconds %}
+    {{ seconds < 0 ? '−' : '' }}{{ (s // 3600) }}:{{ '%02d'|format((s % 3600) // 60) }}
+{% endapply %}{% endmacro %}
+
+{% block main %}
+    {% import _self as fmt %}
+    {% if warn_overtime %}
+        <div class="alert alert-danger d-flex align-items-center" role="alert">
+            <i class="fas fa-triangle-exclamation me-2 fa-lg"></i>
+            <div><strong>{{ 'Achtung – hoher Überstunden-Saldo'|trans }}:</strong> {{ fmt.hm(data.cumulativeSeconds) }} h (≥ 6:00 h). {{ 'Bitte Freizeitausgleich einplanen.'|trans }}</div>
+        </div>
+    {% endif %}
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3 class="card-title">{{ 'Jahr'|trans }} {{ year }}</h3>
+            <div class="btn-list">
+                <a class="btn btn-sm" href="{{ path('worktime_account_year', {year: year - 1, user: viewed_user.id}) }}">&larr; {{ year - 1 }}</a>
+                <a class="btn btn-sm" href="{{ path('worktime_account_year', {year: year + 1, user: viewed_user.id}) }}">{{ year + 1 }} &rarr;</a>
+                <a class="btn btn-sm" href="{{ path('worktime_account', {year: year, user: viewed_user.id}) }}">{{ 'Monatsansicht'|trans }}</a>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+                <thead><tr>
+                    <th>{{ 'Monat'|trans }}</th><th class="text-end">{{ 'Soll'|trans }}</th>
+                    <th class="text-end">{{ 'Ist'|trans }}</th><th class="text-end">{{ 'Saldo'|trans }}</th>
+                </tr></thead>
+                <tbody>
+                {% for m in 1..12 %}
+                    {% set row = data.months[m] %}
+                    <tr>
+                        <td>{{ (year ~ '-' ~ '%02d'|format(m) ~ '-01')|date('F') }}</td>
+                        <td class="text-end">{{ fmt.hm(row.targetSeconds) }}</td>
+                        <td class="text-end">{{ fmt.hm(row.workedSeconds) }}</td>
+                        <td class="text-end {{ row.balanceSeconds < 0 ? 'text-danger' : (row.balanceSeconds > 0 ? 'text-success' : '') }}">{{ fmt.hm(row.balanceSeconds) }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+                <tfoot><tr>
+                    <th>{{ 'Saldo gesamt (Jahresende)'|trans }}</th><th></th><th></th>
+                    <th class="text-end {{ data.cumulativeSeconds < 0 ? 'text-danger' : 'text-success' }}">{{ fmt.hm(data.cumulativeSeconds) }}</th>
+                </tr></tfoot>
+            </table>
+        </div>
+    </div>
+{% endblock %}

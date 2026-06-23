@@ -63,6 +63,27 @@ class AccountService
     }
 
     /**
+     * @return array{months: array<int, array{targetSeconds: int, workedSeconds: int, balanceSeconds: int}>, cumulativeSeconds: int, has_contract: bool}
+     */
+    public function yearAccount(User $user, int $year): array
+    {
+        $months = [];
+        $hasContract = null !== $this->contracts->findForUser($user);
+        $cumulative = 0;
+        for ($m = 1; $m <= 12; ++$m) {
+            $data = $this->monthAccount($user, $year, $m);
+            $months[$m] = [
+                'targetSeconds' => $data['targetSeconds'],
+                'workedSeconds' => $data['workedSeconds'],
+                'balanceSeconds' => $data['balanceSeconds'],
+            ];
+            $cumulative = $data['cumulativeSeconds'];
+        }
+
+        return ['months' => $months, 'cumulativeSeconds' => $cumulative, 'has_contract' => $hasContract];
+    }
+
+    /**
      * Build a DayAccount for every calendar day in [from, to] (both at 00:00 local).
      *
      * @return DayAccount[]
