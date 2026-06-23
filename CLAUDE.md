@@ -37,6 +37,14 @@ All PHP commands assume PHP 8.2+ on `$PATH`. Use the user-facing Composer script
 - `bin/console kimai:reset:dev` / `kimai:reset:test` — drop DB, re-migrate, load fixtures. The test reset is what `tests/bootstrap.php` invokes.
 - `bin/console doctrine:migrations:migrate` — apply schema migrations from `migrations/`.
 
+### Deployment & upgrades (`./kimai.sh`)
+The repo root ships Kimai's official maintenance helper. On this host it is the intended way to upgrade and fix up the install — it runs git pull/checkout, `composer install`, migrations, cache reload, and permission fixes in the right order.
+- `./kimai.sh update` / `./kimai.sh update <version>` — upgrade to latest / to a specific tag (e.g. `2.56.0`).
+- `./kimai.sh permission` — fix file ownership/permissions for the webserver user.
+- `./kimai.sh plugin[s]` — install plugin zips dropped in `var/packages/*.zip` into `var/plugins/`.
+- `./kimai.sh cache` — clear the application cache.
+- Override the runtime via env vars when multiple PHP/composer versions exist: `KIMAI_PHP`, `KIMAI_COMPOSER`, `KIMAI_USER`, `KIMAI_GROUP`, `KIMAI_NO_PERMS`. Append `-v` for verbose output.
+
 ## Architecture
 
 ### Kernel & bundles

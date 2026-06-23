@@ -6,6 +6,22 @@
     <title>{{ invoice['invoice.number'] }}-{{ invoice['customer.company']|default(invoice['customer.name'])|u.snake }}</title>
     <style>
         {{ encore_entry_css_source('invoice')|raw }}
+
+        /* Echte Tabelle mit Gitternetz */
+        table.items-table { border-collapse: collapse; width: 100%; }
+        table.items-table th,
+        table.items-table td {
+            border: 1px solid #000;
+            padding: 4px 6px;
+            vertical-align: top;
+        }
+        /* Datum und Stunden so schmal wie möglich */
+        table.items-table .col-date  { white-space: nowrap; width: 1%; }
+        table.items-table .col-hours { white-space: nowrap; width: 1%; text-align: right; }
+        /* Tätigkeit nimmt die variable Restbreite ein */
+        table.items-table .col-activity { width: 100%; }
+        /* Benutzerspalte passt sich dynamisch dem Namen an */
+        table.items-table .col-user { white-space: nowrap; width: 1%; }
     </style>
 </head>
 <body class="invoice_print">
@@ -80,25 +96,23 @@
 
             <div class="row invoice-items mt-2 mb-3">
                 <div class="col-xs-12 table-responsive">
-                    <table class="table table-striped">
+                    <table class="table table-striped items-table">
                         <thead>
                         <tr>
-                            <th>{{ 'date'|trans }}</th>
+                            <th class="col-date">{{ 'date'|trans }}</th>
+                            <th class="col-hours">H</th>
+                            <th class="col-activity">{{ 'activity'|trans }}</th>
                             {% if invoice['user.see_others'] %}
-                                <th>{{ 'user'|trans }}</th>
+                                <th class="col-user">{{ 'user'|trans }}</th>
                             {% endif %}
-                            <th>{{ 'activity'|trans }}</th>
-                            <th class="text-right">{{ 'hours'|trans }}</th>
                         </tr>
                         </thead>
                         <tbody>
                         {% for timesheet in entries %}
                             <tr>
-                                <td>{{ timesheet['entry.begin'] }}</td>
-                                {% if invoice['user.see_others'] %}
-                                    <td>{{ timesheet['entry.user_display'] }}</td>
-                                {% endif %}
-                                <td contenteditable="true">
+                                <td class="col-date">{{ timesheet['entry.begin'] }}</td>
+                                <td class="col-hours">{{ timesheet['entry.amount'] }}</td>
+                                <td class="col-activity" contenteditable="true">
                                     {% if timesheet['entry.description'] is not empty %}
                                         {{ timesheet['entry.description']|nl2br }}
                                     {% else %}
@@ -108,18 +122,20 @@
                                         {{ timesheet['entry.project'] }}
                                     {% endif %}
                                 </td>
-                                <td class="text-right text-nowrap">{{ timesheet['entry.amount'] }}</td>
+                                {% if invoice['user.see_others'] %}
+                                    <td class="col-user">{{ timesheet['entry.user_display'] }}</td>
+                                {% endif %}
                             </tr>
                         {% endfor %}
                         </tbody>
                         <tfoot>
                         <tr>
-                            <th></th>
+                            <th class="col-date"></th>
+                            <th class="col-hours">{{ invoice['invoice.duration_decimal'] }}</th>
+                            <th class="col-activity">{{ 'invoice.total_working_time'|trans }}</th>
                             {% if invoice['user.see_others'] %}
-                                <th></th>
+                                <th class="col-user"></th>
                             {% endif %}
-                            <th>{{ 'invoice.total_working_time'|trans }}</th>
-                            <th class="text-right text-nowrap">{{ invoice['invoice.duration_decimal'] }}</th>
                         </tr>
                         </tfoot>
                     </table>
@@ -136,10 +152,6 @@
                         </div>
                     {% endif %}
 
-                    <div class="table-responsive">
-                        <p class="bt-1 pb-4 pt-1">{{ 'invoice.signature_user'|trans }}</p>
-                        <p class="bt-1 pb-4 pt-1">{{ 'invoice.signature_customer'|trans }}</p>
-                    </div>
                 </div>
             </div>
 

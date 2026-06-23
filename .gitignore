@@ -36,6 +36,7 @@ var/templates/
 /.env.local
 /.env.local.php
 /.env.*.local
+/.env.backup
 /config/secrets/prod/prod.decrypt.private.php
 .env
 /public/bundles/
