@@ -10,11 +10,14 @@
 
 Ein eigenständiges Kimai-2-Plugin (`var/plugins/WorktimeBundle`) für **tägliche Arbeitszeiterfassung** (Punch In/Out) und **Abwesenheitsverwaltung** (Urlaub, Krankheit, Überstundenabbau) inkl. Arbeitszeitkonto, Monatsabschluss und PDF-Export.
 
-### Leitprinzip: Updatefestigkeit
-Oberstes nicht-funktionales Ziel ist **Unabhängigkeit von Kimai-Core-Updates**. Daraus folgt:
-- Das Plugin besitzt **alle eigenen Datenbanktabellen** und die **komplette Rechenlogik**.
-- Es koppelt an Kimai **nur über stabile, öffentliche Flächen** (siehe §4).
-- Es benutzt **nicht** die nativen Funktionen `WorkingTimeService`, die nativen Contract-Felder am `User` oder die Projekt-Timesheets.
+### Leitprinzip: Updatefestigkeit + Wiederverwendung von Standard-Bausteinen (Mittelweg)
+Oberstes nicht-funktionales Ziel ist **Unabhängigkeit von Kimai-Core-Updates** — bei gleichzeitig **maximaler Wiederverwendung von Standard-Bausteinen, wo sie nicht koppeln**. Daraus folgt:
+- Das Plugin besitzt **alle eigenen Datenbanktabellen** und die **komplette fachliche Rechenlogik** (Konto/Saldo) — das ist die Update-Versicherung.
+- Es benutzt **nicht** die fachlichen Core-Dienste `WorkingTimeService`, die nativen Contract-Felder am `User` oder die Projekt-Timesheets (das wären die fragilen Kopplungen).
+- Es **verwendet aber bewusst Kimais technische Standard-Bausteine wieder**, sofern diese nur lose koppeln: PDF-Renderer, Theme/Layout, Formular-Theme + Basis-Form-Types, DataTable-/Toolbar-Komponenten, Menü-Event, Permission-/Voter-System, Übersetzungs-Infrastruktur, Datums-/Zeit-/User-Helfer. Kein Nachbau von Dingen, die Kimai als wiederverwendbaren Baustein anbietet.
+- Faustregel: **Daten & Fachlogik = eigen** (updatefest); **technische Darstellung/Plumbing = Standard wiederverwenden**.
+
+> Entscheidung „Mittelweg" aus dem Brainstorming: eigene Daten/Logik fürs Konto, aber Standard-Bausteine nutzen wo es nicht koppelt. Punch In/Out bleibt eigene Implementierung (kein nativer Timesheet-Timer), da die Erfassung als entkoppeltes Parallelsystem gewünscht ist.
 
 > Bewusste Entscheidung des Auftraggebers: Obwohl Kimai 2.56 nativ Vertragsfelder (Wochenstunden Mo–So, Beschäftigungsbeginn, Jahresurlaub, Feiertagsgruppe), ein Arbeitszeitkonto (`WorkingTimeService`) und Monatsabschluss (`approveMonth`/`unlockMonth`) mitbringt, wird **bewusst ein Parallelsystem** gebaut, um von internen Core-Änderungen entkoppelt zu sein.
 
@@ -61,6 +64,23 @@ Mitarbeiter sehen **nur ihre eigenen** Abwesenheiten. Der teamweite Abwesenheits
 | **Kopfzeilen-Button (Punch In/Out)** | Injektion eines Stempel-Buttons in die Topbar | **niedrig — Risiko #1** |
 | `App\Pdf\MPdfConverter` / `PdfContext` | PDF-Rendering (mPDF) | mittel |
 | `azuyalabs/yasumi` | Feiertagsberechnung NRW (bereits Core-Dependency) | hoch |
+
+### 4.1 Standard-Bausteine wiederverwenden vs. Eigenbau
+
+| Bereich | Entscheidung | Standard-Baustein |
+|---|---|---|
+| Konto-/Saldo-Rechenlogik | **Eigenbau** (updatefest) | — |
+| Datenmodell (Verträge, Blöcke, Abwesenheiten, …) | **Eigenbau** (updatefest) | — |
+| Punch In/Out | **Eigenbau** | — (bewusst nicht nativer Timer) |
+| PDF-Rendering | **Standard** | `App\Pdf\MPdfConverter` / `PdfContext` |
+| Layout/Views | **Standard** | `@theme`-Templates (Tabler/Bootstrap) |
+| Formulare | **Standard** | Kimai-Formular-Theme + Basis-Form-Types |
+| Tabellen/Toolbar/Pagination | **Standard** | Kimai-DataTable-/Toolbar-Komponenten |
+| Menü | **Standard** | `ConfigureMainMenuEvent` |
+| Rechte/Voter | **Standard** | Kimai Permission-/Voter-System |
+| Übersetzungen | **Standard** | Kimai-XLIFF-/Translation-Infrastruktur |
+| Feiertagsberechnung | **Standard** | `azuyalabs/yasumi` (Core-Dependency) |
+| Datums-/Zeit-/User-Helfer | **Standard** | Kimai-/Symfony-Helfer |
 
 **Risiko #1 (Kopfzeilen-Button):** Die Topbar ist die am wenigsten stabile Fläche. Mitigation: Injektion über die offizielle Theme-/JavaScript-Erweiterung, vollständig gekapselt, sodass eine Theme-Änderung den Button **ausfallen lässt, ohne etwas zu beschädigen**. Fallback: ein immer sichtbarer, großer Punch-Button auf der Plugin-eigenen Seite. Der genaue stabile Hook ist in der Planungsphase zu verifizieren.
 
@@ -224,7 +244,8 @@ Jahresanspruch + Übertrag − genehmigte Urlaubstage + Korrekturen (Konto Urlau
 
 ## 13. Entscheidungs-Log (aus dem Brainstorming)
 
-- **Strategie:** Eigenständiges Parallel-Plugin, eigene Tabellen + Logik. *Grund:* Unabhängigkeit von Core-Updates.
+- **Strategie:** Eigenständiges Plugin, eigene Tabellen + Fachlogik. *Grund:* Unabhängigkeit von Core-Updates.
+- **Standardfunktionen (Mittelweg):** Daten & Fachlogik bleiben eigen (updatefest); technische Standard-Bausteine (PDF, Theme, Formulare, Tabellen, Menü, Rechte, Übersetzungen, yasumi) werden wiederverwendet, wo sie nur lose koppeln (siehe §4.1). Punch In/Out bleibt Eigenbau.
 - **Ist-Erfassung:** Eigene Tageserfassung im Plugin (keine Kimai-Timesheets) — primär **Punch In/Out**.
 - **Tages-Granularität:** Mehrere Blöcke (Beginn–Ende), Lücken = Pause.
 - **Vertrag:** Ein aktueller Vertrag pro MA (überschreibend); gesperrte Monate via Snapshot eingefroren.
