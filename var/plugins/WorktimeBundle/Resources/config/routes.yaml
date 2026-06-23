@@ -1,0 +1,3 @@
+worktime:
+    resource: '../../Controller'
+    type: attribute

@@ -1,0 +1,18 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
+
+    KimaiPlugin\WorktimeBundle\:
+        resource: '../../*'
+        exclude:
+            - '../../Resources/'
+            - '../../Entity/'
+            - '../../Model/'
+            - '../../Migrations/'
+            - '../../WorktimeBundle.php'
+
+    KimaiPlugin\WorktimeBundle\Controller\:
+        resource: '../../Controller'
+        tags: ['controller.service_arguments']

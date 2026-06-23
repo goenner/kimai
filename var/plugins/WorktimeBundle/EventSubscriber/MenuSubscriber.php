@@ -1,0 +1,37 @@
+<?php
+
+/*
+ * This file is part of the WorktimeBundle for Kimai.
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
+namespace KimaiPlugin\WorktimeBundle\EventSubscriber;
+
+use App\Event\ConfigureMainMenuEvent;
+use App\Utils\MenuItemModel;
+use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
+
+final class MenuSubscriber implements EventSubscriberInterface
+{
+    public function __construct(private readonly AuthorizationCheckerInterface $security)
+    {
+    }
+
+    public static function getSubscribedEvents(): array
+    {
+        return [ConfigureMainMenuEvent::class => ['onMenuConfigure', 100]];
+    }
+
+    public function onMenuConfigure(ConfigureMainMenuEvent $event): void
+    {
+        if (!$this->security->isGranted('worktime_view_own')) {
+            return;
+        }
+
+        $event->getMenu()->addChild(
+            new MenuItemModel('worktime', 'Arbeitszeit', 'worktime_index', [], 'fas fa-business-time')
+        );
+    }
+}
