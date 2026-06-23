@@ -2,60 +2,244 @@
 
 {% block page_title %}{{ 'Arbeitszeit'|trans }}{% endblock %}
 
-{% block main %}
-    <div class="card mb-3">
-        <div class="card-body">
-            {% if open_block %}
-                <p class="mb-2">
-                    <span class="badge bg-green text-green-fg">{{ 'eingestempelt'|trans }}</span>
-                    {{ 'seit'|trans }} <strong>{{ open_block.start|time }}</strong>
-                </p>
-            {% else %}
-                <p class="mb-2"><span class="badge bg-secondary">{{ 'ausgestempelt'|trans }}</span></p>
-            {% endif %}
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        @font-face {
+            font-family: 'SpaceGrotesk';
+            src: url('{{ asset('bundles/worktime/fonts/SpaceGrotesk-Medium.ttf') }}') format('truetype');
+            font-weight: 500; font-display: swap;
+        }
+        @font-face {
+            font-family: 'SpaceGrotesk';
+            src: url('{{ asset('bundles/worktime/fonts/SpaceGrotesk-Bold.ttf') }}') format('truetype');
+            font-weight: 700; font-display: swap;
+        }
+        @font-face {
+            font-family: 'WtInter';
+            src: url('{{ asset('bundles/worktime/fonts/Inter-Regular.ttf') }}') format('truetype');
+            font-weight: 400; font-display: swap;
+        }
+        @font-face {
+            font-family: 'WtInter';
+            src: url('{{ asset('bundles/worktime/fonts/Inter-SemiBold.ttf') }}') format('truetype');
+            font-weight: 600; font-display: swap;
+        }
 
-            <form method="post" action="{{ path('worktime_punch') }}">
-                <input type="hidden" name="_token" value="{{ csrf_token('worktime.punch') }}">
-                {% if open_block %}
-                    <button type="submit" class="btn btn-lg btn-danger">
+        .wt {
+            --navy: #2C4A73; --navy-deep: #21395a; --mint: #2EC4A9; --mint-700: #15756B;
+            --ice: #F2F6F8; --ink: #22344E; --hair: #DCE3EA; --white: #ffffff;
+            --body: 'WtInter', -apple-system, "Segoe UI", Roboto, sans-serif;
+            --display: 'SpaceGrotesk', 'WtInter', sans-serif;
+            max-width: 760px; margin: 0 auto; color: var(--ink); font-family: var(--body);
+        }
+        .wt *, .wt *::before, .wt *::after { box-sizing: border-box; }
+
+        .wt-eyebrow {
+            display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap;
+            margin: 0 .25rem 1rem; font-size: .72rem; letter-spacing: .18em;
+            text-transform: uppercase; color: var(--mint-700); font-weight: 600;
+        }
+        .wt-eyebrow .wt-eyebrow__date { color: #9aa7b4; letter-spacing: .08em; }
+
+        /* ---- Hero ---- */
+        .wt-hero {
+            position: relative; overflow: hidden; border-radius: 20px;
+            border: 1px solid var(--hair); background: var(--white);
+            padding: 2.4rem 2rem; text-align: center;
+            transition: background .5s ease, border-color .5s ease, color .5s ease;
+        }
+        .wt-hero__pill {
+            display: inline-flex; align-items: center; gap: .5rem;
+            font-size: .72rem; letter-spacing: .16em; text-transform: uppercase;
+            font-weight: 600; padding: .35rem .8rem; border-radius: 999px;
+        }
+        .wt-hero__clock {
+            font-family: var(--display); font-weight: 700; line-height: 1;
+            font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+            letter-spacing: .01em;
+        }
+        .wt-hero__sub { font-size: .92rem; margin-top: .55rem; }
+
+        .wt-punch {
+            -webkit-appearance: none; appearance: none; cursor: pointer;
+            border: 0; border-radius: 999px; font-family: var(--body); font-weight: 600;
+            font-size: 1.05rem; letter-spacing: .02em; padding: .95rem 2.4rem;
+            margin-top: 1.6rem; display: inline-flex; align-items: center; gap: .6rem;
+            transition: transform .08s ease, box-shadow .2s ease, background .2s ease;
+        }
+        .wt-punch:active { transform: translateY(1px) scale(.99); }
+        .wt-punch:focus-visible { outline: 3px solid var(--mint); outline-offset: 3px; }
+
+        /* OUT state (ready to clock in) */
+        .wt-hero--out { background: var(--white); }
+        .wt-hero--out .wt-hero__pill { background: var(--ice); color: #7d8a98; }
+        .wt-hero--out .wt-hero__clock { color: var(--navy); font-size: 2.1rem; font-weight: 500; }
+        .wt-hero--out .wt-hero__sub { color: #7d8a98; }
+        .wt-punch--in {
+            background: var(--mint); color: #06312b;
+            box-shadow: 0 8px 22px -8px rgba(46,196,169,.8);
+        }
+        .wt-punch--in:hover { background: #28b39a; }
+
+        /* IN state (on the clock) — the signature: card goes navy + live mint timer */
+        .wt-hero--in {
+            background: radial-gradient(120% 140% at 50% -10%, var(--navy) 0%, var(--navy-deep) 70%);
+            border-color: transparent; color: #cdd9e8;
+        }
+        .wt-hero--in .wt-hero__pill { background: rgba(46,196,169,.16); color: var(--mint); }
+        .wt-hero--in .wt-hero__clock { color: var(--white); font-size: clamp(3.2rem, 12vw, 4.6rem); }
+        .wt-hero--in .wt-hero__sub { color: #9fb1c6; }
+        .wt-punch--out {
+            background: var(--white); color: var(--navy);
+            box-shadow: 0 8px 22px -10px rgba(0,0,0,.5);
+        }
+        .wt-punch--out:hover { background: #eef3f8; }
+
+        .wt-dot { width: .55rem; height: .55rem; border-radius: 999px; background: var(--mint); display: inline-block; }
+        .wt-hero--in .wt-dot { box-shadow: 0 0 0 0 rgba(46,196,169,.7); }
+
+        /* ---- Stat tiles ---- */
+        .wt-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+        .wt-stat { background: var(--ice); border: 1px solid var(--hair); border-radius: 16px; padding: 1.1rem 1.3rem; }
+        .wt-stat__label { font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: #8090a0; font-weight: 600; }
+        .wt-stat__value { font-family: var(--display); font-weight: 700; font-size: 2rem; color: var(--navy); margin-top: .25rem; font-variant-numeric: tabular-nums; }
+        .wt-stat__value--accent { color: var(--mint-700); }
+
+        /* ---- Timeline ---- */
+        .wt-sessions { margin-top: 1.6rem; }
+        .wt-sessions__title { font-size: .72rem; letter-spacing: .16em; text-transform: uppercase; color: #8090a0; font-weight: 600; margin: 0 .25rem .75rem; }
+        .wt-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; padding: .85rem 1rem; border: 1px solid var(--hair); border-radius: 14px; background: var(--white); }
+        .wt-row + .wt-row { margin-top: .55rem; }
+        .wt-row--live { border-color: var(--mint); background: linear-gradient(0deg, rgba(46,196,169,.06), rgba(46,196,169,.06)), var(--white); }
+        .wt-row__time { font-family: var(--display); font-weight: 500; font-variant-numeric: tabular-nums; color: var(--navy); white-space: nowrap; }
+        .wt-row__time .wt-arrow { color: var(--hair); margin: 0 .5rem; }
+        .wt-row__time .wt-running { color: var(--mint-700); font-weight: 700; }
+        .wt-row__dur { font-family: var(--display); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+        .wt-row__bullet { width: .6rem; height: .6rem; border-radius: 999px; background: var(--navy); }
+        .wt-row--live .wt-row__bullet { background: var(--mint); }
+        .wt-empty { padding: 1.6rem; text-align: center; color: #9aa7b4; border: 1px dashed var(--hair); border-radius: 14px; background: var(--white); }
+
+        @media (max-width: 540px) {
+            .wt-stats { grid-template-columns: 1fr; }
+            .wt-hero { padding: 2rem 1.2rem; }
+        }
+        @media (prefers-reduced-motion: no-preference) {
+            .wt-hero--in .wt-dot { animation: wt-pulse 1.8s ease-out infinite; }
+            @keyframes wt-pulse {
+                0% { box-shadow: 0 0 0 0 rgba(46,196,169,.55); }
+                100% { box-shadow: 0 0 0 .8rem rgba(46,196,169,0); }
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block main %}
+    {% set is_in = open_block is not null %}
+    <div class="wt"
+         data-server-now="{{ server_now }}"
+         data-today-base="{{ today_seconds }}"
+         data-open-since="{{ is_in ? open_block.start.getTimestamp() : '' }}">
+
+        <div class="wt-eyebrow">
+            <span>{{ 'Arbeitszeit'|trans }}</span>
+            <span class="wt-eyebrow__date">{{ today|day_name }}, {{ today|date_short }}</span>
+        </div>
+
+        <section class="wt-hero {{ is_in ? 'wt-hero--in' : 'wt-hero--out' }}">
+            {% if is_in %}
+                <span class="wt-hero__pill"><span class="wt-dot"></span> {{ 'läuft'|trans }}</span>
+                <div class="wt-hero__clock" data-session-timer>0:00:00</div>
+                <div class="wt-hero__sub">{{ 'seit'|trans }} <strong>{{ open_block.start|time }}</strong></div>
+                <form method="post" action="{{ path('worktime_punch') }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('worktime.punch') }}">
+                    <button type="submit" class="wt-punch wt-punch--out">
                         <i class="{{ 'stop'|icon }}"></i> {{ 'Ausstempeln'|trans }}
                     </button>
-                {% else %}
-                    <button type="submit" class="btn btn-lg btn-success">
+                </form>
+            {% else %}
+                <span class="wt-hero__pill">{{ 'Bereit'|trans }}</span>
+                <div class="wt-hero__clock">{{ 'Nicht eingestempelt'|trans }}</div>
+                <div class="wt-hero__sub">{{ 'Stempel dich ein, um deine Arbeitszeit zu erfassen.'|trans }}</div>
+                <form method="post" action="{{ path('worktime_punch') }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('worktime.punch') }}">
+                    <button type="submit" class="wt-punch wt-punch--in">
                         <i class="{{ 'start'|icon }}"></i> {{ 'Einstempeln'|trans }}
                     </button>
-                {% endif %}
-            </form>
+                </form>
+            {% endif %}
+        </section>
 
-            <p class="mt-3 mb-0 text-muted">
-                {{ 'Heute gebucht'|trans }}: <strong>{{ today_seconds|duration }}</strong>
-            </p>
+        <div class="wt-stats">
+            <div class="wt-stat">
+                <div class="wt-stat__label">{{ 'Heute gesamt'|trans }}</div>
+                <div class="wt-stat__value wt-stat__value--accent" data-today-total>{{ today_seconds|duration }}</div>
+            </div>
+            <div class="wt-stat">
+                <div class="wt-stat__label">{{ 'Sitzungen heute'|trans }}</div>
+                <div class="wt-stat__value">{{ today_blocks|length }}</div>
+            </div>
+        </div>
+
+        <div class="wt-sessions">
+            <div class="wt-sessions__title">{{ 'Heutige Stempelzeiten'|trans }}</div>
+            {% for block in today_blocks %}
+                <div class="wt-row {{ block.end is null ? 'wt-row--live' : '' }}">
+                    <span class="wt-row__bullet"></span>
+                    <span class="wt-row__time">
+                        {{ block.start|time }}
+                        <span class="wt-arrow">→</span>
+                        {% if block.end is null %}
+                            <span class="wt-running">{{ 'läuft'|trans }}</span>
+                        {% else %}
+                            {{ block.end|time }}
+                        {% endif %}
+                    </span>
+                    <span class="wt-row__dur">{{ block.durationSeconds is null ? '·' : block.durationSeconds|duration }}</span>
+                </div>
+            {% else %}
+                <div class="wt-empty">{{ 'Noch keine Buchung heute.'|trans }}</div>
+            {% endfor %}
         </div>
     </div>
+{% endblock %}
 
-    <div class="card">
-        <div class="card-header"><h3 class="card-title">{{ 'Heutige Stempelzeiten'|trans }}</h3></div>
-        <div class="table-responsive">
-            <table class="table table-vcenter card-table">
-                <thead>
-                    <tr>
-                        <th>{{ 'Beginn'|trans }}</th>
-                        <th>{{ 'Ende'|trans }}</th>
-                        <th>{{ 'Dauer'|trans }}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for block in today_blocks %}
-                        <tr>
-                            <td>{{ block.start|time }}</td>
-                            <td>{{ block.end is null ? '–' : block.end|time }}</td>
-                            <td>{{ block.durationSeconds is null ? ('läuft'|trans) : (block.durationSeconds|duration) }}</td>
-                        </tr>
-                    {% else %}
-                        <tr><td colspan="3" class="text-muted">{{ 'Noch keine Buchung heute.'|trans }}</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        (function () {
+            var root = document.querySelector('.wt');
+            if (!root) { return; }
+            var since = parseInt(root.getAttribute('data-open-since'), 10);
+            if (!since) { return; }
+
+            var todayBase = parseInt(root.getAttribute('data-today-base'), 10) || 0;
+            var serverNow = parseInt(root.getAttribute('data-server-now'), 10) || 0;
+            // correct for client/server clock skew so the live timer matches "seit HH:MM"
+            var offset = serverNow - Math.floor(Date.now() / 1000);
+
+            var timerEl = root.querySelector('[data-session-timer]');
+            var totalEl = root.querySelector('[data-today-total]');
+
+            function pad(n) { return n < 10 ? '0' + n : '' + n; }
+            function hms(s) {
+                if (s < 0) { s = 0; }
+                var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+                return h + ':' + pad(m) + ':' + pad(sec);
+            }
+            function hm(s) {
+                if (s < 0) { s = 0; }
+                var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+                return h + ':' + pad(m);
+            }
+
+            function tick() {
+                var now = Math.floor(Date.now() / 1000) + offset;
+                if (timerEl) { timerEl.textContent = hms(now - since); }
+                if (totalEl) { totalEl.textContent = hm(todayBase + (now - serverNow)); }
+            }
+            tick();
+            setInterval(tick, 1000);
+        })();
+    </script>
 {% endblock %}

@@ -43,9 +43,11 @@ final class WorktimeController extends AbstractController
         $now = new \DateTimeImmutable('now');
 
         return $this->render('@Worktime/index.html.twig', [
+            'today' => $todayStart,
             'open_block' => $openBlock,
             'today_blocks' => $todayBlocks,
             'today_seconds' => $math->netSeconds($todayBlocks, $now),
+            'server_now' => $now->getTimestamp(),
         ]);
     }
 
