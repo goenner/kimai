@@ -1,0 +1,127 @@
+{% extends 'base.html.twig' %}
+
+{% block page_title %}{{ 'Urlaub'|trans }}{% endblock %}
+
+{% block main %}
+    {% if not has_contract %}
+        <div class="alert alert-warning">{{ 'Für dich ist noch kein Vertrag hinterlegt. Bitte wende dich an die Verwaltung.'|trans }}</div>
+    {% endif %}
+
+    <div class="row row-cards mb-3">
+        <div class="col-sm-4">
+            <div class="card"><div class="card-body">
+                <div class="text-muted small text-uppercase">{{ 'Urlaubsrest'|trans }} {{ year }}</div>
+                <div class="h1 mb-0">{{ remaining|number_format(1, ',', '.') }} {{ 'Tage'|trans }}</div>
+            </div></div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card"><div class="card-body">
+                <div class="text-muted small text-uppercase">{{ 'Anspruch + Übertrag'|trans }}</div>
+                <div class="h2 mb-0">{{ (entitlement + carryover)|number_format(1, ',', '.') }} {{ 'Tage'|trans }}</div>
+            </div></div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card"><div class="card-body">
+                <div class="text-muted small text-uppercase">{{ 'Genommen'|trans }} {{ year }}</div>
+                <div class="h2 mb-0">{{ used|number_format(1, ',', '.') }} {{ 'Tage'|trans }}</div>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3 class="card-title">{{ 'Meine Urlaubsanträge'|trans }}</h3>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#wtVacationModal">
+                <i class="{{ 'create'|icon }}"></i> {{ 'Urlaub beantragen'|trans }}
+            </button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+                <thead><tr>
+                    <th>{{ 'Von'|trans }}</th><th>{{ 'Bis'|trans }}</th><th>{{ 'Tage'|trans }}</th><th>{{ 'Status'|trans }}</th><th>{{ 'Notiz'|trans }}</th>
+                </tr></thead>
+                <tbody>
+                {% for row in rows %}
+                    {% set a = row.absence %}
+                    <tr>
+                        <td>{{ a.startDate|date_short }}</td>
+                        <td>{{ a.endDate|date_short }}{% if a.halfDay %} <span class="badge bg-azure-lt">{{ 'halber Tag'|trans }}</span>{% endif %}</td>
+                        <td>{{ row.days|number_format(1, ',', '.') }}</td>
+                        <td>
+                            {% if a.status == 'approved' %}<span class="badge bg-green text-green-fg">{{ 'genehmigt'|trans }}</span>
+                            {% elseif a.status == 'rejected' %}<span class="badge bg-red text-red-fg">{{ 'abgelehnt'|trans }}</span>
+                            {% else %}<span class="badge bg-yellow text-yellow-fg">{{ 'offen'|trans }}</span>{% endif %}
+                        </td>
+                        <td class="text-muted">{{ a.note }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5" class="text-muted">{{ 'Noch keine Anträge.'|trans }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="modal fade" id="wtVacationModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form method="post" action="{{ path('worktime_vacation_request') }}">
+                    <div class="modal-header">
+                        <h5 class="modal-title">{{ 'Urlaub beantragen'|trans }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'Schließen'|trans }}"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="_token" value="{{ csrf_token('worktime.vacation') }}">
+                        <div class="row">
+                            <div class="col mb-3">
+                                <label class="form-label" for="wtVacStart">{{ 'Von'|trans }}</label>
+                                <input type="date" class="form-control" id="wtVacStart" name="start" required data-wt-vac-start>
+                            </div>
+                            <div class="col mb-3">
+                                <label class="form-label" for="wtVacEnd">{{ 'Bis'|trans }}</label>
+                                <input type="date" class="form-control" id="wtVacEnd" name="end" required data-wt-vac-end>
+                            </div>
+                        </div>
+                        <label class="form-check">
+                            <input type="checkbox" class="form-check-input" name="half_day" value="1" data-wt-vac-half>
+                            <span class="form-check-label">{{ 'Halber Tag (nur bei einem einzelnen Tag)'|trans }}</span>
+                        </label>
+                        <div class="mt-3">
+                            <label class="form-label" for="wtVacNote">{{ 'Notiz (optional)'|trans }}</label>
+                            <input type="text" class="form-control" id="wtVacNote" name="note" maxlength="500">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-link" data-bs-dismiss="modal">{{ 'Abbrechen'|trans }}</button>
+                        <button type="submit" class="btn btn-primary">{{ 'Antrag senden'|trans }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        (function () {
+            var modal = document.getElementById('wtVacationModal');
+            if (!modal) { return; }
+            var startEl = modal.querySelector('[data-wt-vac-start]');
+            var endEl = modal.querySelector('[data-wt-vac-end]');
+            var halfEl = modal.querySelector('[data-wt-vac-half]');
+            // keep end >= start, and disable half-day unless it is a single day
+            function sync() {
+                if (startEl.value && (!endEl.value || endEl.value < startEl.value)) {
+                    endEl.value = startEl.value;
+                }
+                var single = startEl.value && endEl.value && startEl.value === endEl.value;
+                halfEl.disabled = !single;
+                if (!single) { halfEl.checked = false; }
+            }
+            startEl.addEventListener('input', sync);
+            endEl.addEventListener('input', sync);
+            modal.addEventListener('show.bs.modal', sync);
+        })();
+    </script>
+{% endblock %}

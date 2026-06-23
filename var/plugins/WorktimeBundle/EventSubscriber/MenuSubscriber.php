@@ -33,5 +33,8 @@ final class MenuSubscriber implements EventSubscriberInterface
         $event->getMenu()->addChild(
             new MenuItemModel('worktime', 'Arbeitszeit', 'worktime_index', [], 'fas fa-business-time')
         );
+        $event->getMenu()->addChild(
+            new MenuItemModel('worktime_vacation', 'Urlaub', 'worktime_vacation', [], 'fas fa-umbrella-beach')
+        );
     }
 }
