@@ -35,13 +35,13 @@ class WorkBlockValidatorTest extends TestCase
     {
         $start = new \DateTimeImmutable('2026-06-01 12:00:00');
         $end = new \DateTimeImmutable('2026-06-01 08:00:00');
-        self::assertNotNull($this->v()->validateInterval($start, $end));
+        self::assertIsString($this->v()->validateInterval($start, $end));
     }
 
     public function testEndEqualStartIsInvalid(): void
     {
         $start = new \DateTimeImmutable('2026-06-01 08:00:00');
         $end = new \DateTimeImmutable('2026-06-01 08:00:00');
-        self::assertNotNull($this->v()->validateInterval($start, $end));
+        self::assertIsString($this->v()->validateInterval($start, $end));
     }
 }

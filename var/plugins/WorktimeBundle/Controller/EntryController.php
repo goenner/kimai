@@ -122,6 +122,15 @@ final class EntryController extends AbstractController
             return $this->redirectIndex();
         }
 
+        if (null === $end) {
+            $existingOpen = $blocks->findOpenBlock($user);
+            if (null !== $existingOpen && $existingOpen->getId() !== $block->getId()) {
+                $this->addFlash('error', 'Es gibt bereits eine laufende Buchung. Bitte zuerst beenden.');
+
+                return $this->redirectIndex();
+            }
+        }
+
         $old = [
             'start' => $block->getStart()->format('c'),
             'end' => $block->getEnd()?->format('c'),
