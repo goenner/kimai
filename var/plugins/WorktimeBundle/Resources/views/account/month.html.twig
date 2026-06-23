@@ -1,0 +1,74 @@
+{% extends 'base.html.twig' %}
+
+{% block page_title %}{{ 'Zeitkonto'|trans }} — {{ viewed_user.displayName }}{% endblock %}
+
+{% macro hm(seconds) %}{% apply spaceless %}
+    {% set s = seconds < 0 ? -seconds : seconds %}
+    {{ seconds < 0 ? '−' : '' }}{{ (s // 3600) }}:{{ '%02d'|format((s % 3600) // 60) }}
+{% endapply %}{% endmacro %}
+
+{% block main %}
+    {% import _self as fmt %}
+    {% if warn_overtime %}
+        <div class="alert alert-danger d-flex align-items-center" role="alert">
+            <i class="fas fa-triangle-exclamation me-2 fa-lg"></i>
+            <div>
+                <strong>{{ 'Achtung – hoher Überstunden-Saldo'|trans }}:</strong>
+                {{ 'Der Saldo liegt bei'|trans }} {{ fmt.hm(data.cumulativeSeconds) }} h (≥ 6:00 h). {{ 'Bitte Freizeitausgleich einplanen.'|trans }}
+            </div>
+        </div>
+    {% endif %}
+    {% if not data.has_contract %}
+        <div class="alert alert-warning">{{ 'Für diesen Nutzer ist kein Vertrag hinterlegt — kein Soll berechenbar.'|trans }}</div>
+    {% endif %}
+    <div class="alert alert-info">{{ 'Hinweis: Feiertage werden noch nicht berücksichtigt; an Feiertagen entspricht das Soll den Vertragsstunden.'|trans }}</div>
+
+    <div class="row row-cards mb-3">
+        <div class="col-sm-3"><div class="card"><div class="card-body">
+            <div class="text-muted small text-uppercase">{{ 'Saldo gesamt'|trans }}</div>
+            <div class="h1 mb-0 {{ (data.cumulativeSeconds < 0 or warn_overtime) ? 'text-danger' : 'text-success' }}">{{ fmt.hm(data.cumulativeSeconds) }} h</div>
+        </div></div></div>
+        <div class="col-sm-3"><div class="card"><div class="card-body">
+            <div class="text-muted small text-uppercase">{{ 'Saldo Monat'|trans }}</div>
+            <div class="h2 mb-0">{{ fmt.hm(data.balanceSeconds) }} h</div>
+        </div></div></div>
+        <div class="col-sm-3"><div class="card"><div class="card-body">
+            <div class="text-muted small text-uppercase">{{ 'Ist Monat'|trans }}</div>
+            <div class="h2 mb-0">{{ fmt.hm(data.workedSeconds) }} h</div>
+        </div></div></div>
+        <div class="col-sm-3"><div class="card"><div class="card-body">
+            <div class="text-muted small text-uppercase">{{ 'Soll Monat'|trans }}</div>
+            <div class="h2 mb-0">{{ fmt.hm(data.targetSeconds) }} h</div>
+        </div></div></div>
+    </div>
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h3 class="card-title">{{ month_label|month_name }} {{ year }}</h3>
+            <div class="btn-list">
+                <a class="btn btn-sm" href="{{ path('worktime_account', {year: prev|date('Y'), month: prev|date('n'), user: viewed_user.id}) }}">&larr; {{ 'Vormonat'|trans }}</a>
+                <a class="btn btn-sm" href="{{ path('worktime_account', {year: next|date('Y'), month: next|date('n'), user: viewed_user.id}) }}">{{ 'Folgemonat'|trans }} &rarr;</a>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+                <thead><tr>
+                    <th>{{ 'Tag'|trans }}</th><th class="text-end">{{ 'Soll'|trans }}</th><th class="text-end">{{ 'Ist'|trans }}</th>
+                    <th class="text-end">{{ 'Saldo'|trans }}</th><th>{{ 'Abwesenheit'|trans }}</th>
+                </tr></thead>
+                <tbody>
+                {% for d in data.days %}
+                    {% set weekend = d.targetSeconds == 0 and d.workedSeconds == 0 and d.note is null %}
+                    <tr class="{{ weekend ? 'text-muted' : '' }}">
+                        <td>{{ d.date|date_weekday }}</td>
+                        <td class="text-end">{{ fmt.hm(d.targetSeconds) }}</td>
+                        <td class="text-end">{{ fmt.hm(d.workedSeconds) }}</td>
+                        <td class="text-end {{ d.balanceSeconds < 0 ? 'text-danger' : (d.balanceSeconds > 0 ? 'text-success' : '') }}">{{ fmt.hm(d.balanceSeconds) }}</td>
+                        <td>{% if d.note %}<span class="badge bg-azure-lt">{{ d.note }}</span>{% endif %}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}
