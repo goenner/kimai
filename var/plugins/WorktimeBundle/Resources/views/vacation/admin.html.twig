@@ -1,0 +1,41 @@
+{% extends 'base.html.twig' %}
+
+{% block page_title %}{{ 'Urlaubsanträge'|trans }}{% endblock %}
+
+{% block main %}
+    <div class="card">
+        <div class="card-header"><h3 class="card-title">{{ 'Offene Urlaubsanträge'|trans }}</h3></div>
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+                <thead><tr>
+                    <th>{{ 'Mitarbeiter'|trans }}</th><th>{{ 'Von'|trans }}</th><th>{{ 'Bis'|trans }}</th>
+                    <th>{{ 'Tage'|trans }}</th><th>{{ 'Notiz'|trans }}</th><th></th>
+                </tr></thead>
+                <tbody>
+                {% for row in rows %}
+                    {% set a = row.absence %}
+                    <tr>
+                        <td>{{ a.user.displayName }}</td>
+                        <td>{{ a.startDate|date_short }}</td>
+                        <td>{{ a.endDate|date_short }}{% if a.halfDay %} <span class="badge bg-azure-lt">{{ 'halber Tag'|trans }}</span>{% endif %}</td>
+                        <td>{{ row.days|number_format(1, ',', '.') }}</td>
+                        <td class="text-muted">{{ a.note }}</td>
+                        <td class="text-end">
+                            <form method="post" action="{{ path('worktime_absences_approve', {id: a.id}) }}" class="d-inline">
+                                <input type="hidden" name="_token" value="{{ csrf_token('worktime.absence') }}">
+                                <button type="submit" class="btn btn-sm btn-success">{{ 'Genehmigen'|trans }}</button>
+                            </form>
+                            <form method="post" action="{{ path('worktime_absences_reject', {id: a.id}) }}" class="d-inline">
+                                <input type="hidden" name="_token" value="{{ csrf_token('worktime.absence') }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">{{ 'Ablehnen'|trans }}</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="6" class="text-muted">{{ 'Keine offenen Anträge.'|trans }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}

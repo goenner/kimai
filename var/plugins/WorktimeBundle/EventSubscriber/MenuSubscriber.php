@@ -26,15 +26,19 @@ final class MenuSubscriber implements EventSubscriberInterface
 
     public function onMenuConfigure(ConfigureMainMenuEvent $event): void
     {
-        if (!$this->security->isGranted('worktime_view_own')) {
-            return;
+        if ($this->security->isGranted('worktime_view_own')) {
+            $event->getMenu()->addChild(
+                new MenuItemModel('worktime', 'Arbeitszeit', 'worktime_index', [], 'fas fa-business-time')
+            );
+            $event->getMenu()->addChild(
+                new MenuItemModel('worktime_vacation', 'Urlaub', 'worktime_vacation', [], 'fas fa-umbrella-beach')
+            );
         }
 
-        $event->getMenu()->addChild(
-            new MenuItemModel('worktime', 'Arbeitszeit', 'worktime_index', [], 'fas fa-business-time')
-        );
-        $event->getMenu()->addChild(
-            new MenuItemModel('worktime_vacation', 'Urlaub', 'worktime_vacation', [], 'fas fa-umbrella-beach')
-        );
+        if ($this->security->isGranted('worktime_manage')) {
+            $event->getSystemMenu()->addChild(
+                new MenuItemModel('worktime_absences_admin', 'Urlaubsanträge', 'worktime_absences_admin', [], 'fas fa-umbrella-beach')
+            );
+        }
     }
 }
