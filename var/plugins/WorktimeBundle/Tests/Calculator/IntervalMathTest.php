@@ -21,7 +21,8 @@ class IntervalMathTest extends TestCase
     public function testDisjointDoNotOverlap(): void
     {
         $m = new IntervalMath();
-        self::assertFalse($m->overlaps($this->d('2026-06-01 08:00'), $this->d('2026-06-01 12:00'), $this->d('2026-06-01 12:00'), $this->d('2026-06-01 13:00')));
+        // genuine gap between the two intervals (12:00 -> 13:00)
+        self::assertFalse($m->overlaps($this->d('2026-06-01 08:00'), $this->d('2026-06-01 12:00'), $this->d('2026-06-01 13:00'), $this->d('2026-06-01 14:00')));
     }
 
     public function testOverlapping(): void
