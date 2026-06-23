@@ -53,7 +53,7 @@ final class WorktimeController extends AbstractController
 
     #[Route(path: '/punch', name: 'worktime_punch', methods: ['POST'])]
     #[IsGranted('worktime_edit_own')]
-    public function punch(Request $request, WorkBlockRepository $blocks): Response
+    public function punch(Request $request, WorkBlockRepository $blocks, \KimaiPlugin\WorktimeBundle\Audit\AuditLogger $audit): Response
     {
         if (!$this->isCsrfTokenValid('worktime.punch', (string) $request->request->get('_token'))) {
             $this->addFlash('error', 'Ungültiges Token.');
@@ -69,6 +69,7 @@ final class WorktimeController extends AbstractController
         if (null !== $open) {
             $open->setEnd($now);
             $blocks->save($open);
+            $audit->log($user, $user, \KimaiPlugin\WorktimeBundle\Entity\AuditLog::ACTION_PUNCH_OUT, 'work_block', $open->getId(), ['end' => $now->format('c')]);
             $this->addFlash('success', 'Ausgestempelt.');
         } else {
             $block = new WorkBlock();
@@ -76,6 +77,7 @@ final class WorktimeController extends AbstractController
             $block->setStart($now);
             $block->setSource(WorkBlock::SOURCE_PUNCH);
             $blocks->save($block);
+            $audit->log($user, $user, \KimaiPlugin\WorktimeBundle\Entity\AuditLog::ACTION_PUNCH_IN, 'work_block', $block->getId(), ['start' => $now->format('c')]);
             $this->addFlash('success', 'Eingestempelt.');
         }
 
