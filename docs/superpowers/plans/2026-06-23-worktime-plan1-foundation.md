@@ -302,7 +302,7 @@ final class WorktimeController extends AbstractController
 `var/plugins/WorktimeBundle/Resources/views/index.html.twig`:
 
 ```twig
-{% extends '@theme/base.html.twig' %}
+{% extends 'base.html.twig' %}
 
 {% block page_title %}{{ 'Arbeitszeit'|trans }}{% endblock %}
 
@@ -1180,7 +1180,7 @@ final class ContractAdminController extends AbstractController
 `var/plugins/WorktimeBundle/Resources/views/contract/index.html.twig`:
 
 ```twig
-{% extends '@theme/base.html.twig' %}
+{% extends 'base.html.twig' %}
 
 {% block page_title %}{{ 'Verträge'|trans }}{% endblock %}
 
@@ -1215,7 +1215,7 @@ final class ContractAdminController extends AbstractController
 `var/plugins/WorktimeBundle/Resources/views/contract/edit.html.twig`:
 
 ```twig
-{% extends '@theme/base.html.twig' %}
+{% extends 'base.html.twig' %}
 
 {% block page_title %}{{ 'Vertrag'|trans }} — {{ user.displayName }}{% endblock %}
 
