@@ -10,11 +10,8 @@ namespace KimaiPlugin\WorktimeBundle\Controller;
 
 use App\Controller\AbstractController;
 use App\Entity\User;
-use KimaiPlugin\WorktimeBundle\Audit\AuditLogger;
-use KimaiPlugin\WorktimeBundle\Entity\AuditLog;
-use KimaiPlugin\WorktimeBundle\Entity\WorkBlock;
 use KimaiPlugin\WorktimeBundle\Repository\WorkBlockRepository;
-use KimaiPlugin\WorktimeBundle\Validator\WorkBlockValidator;
+use KimaiPlugin\WorktimeBundle\Service\WorkBlockMutator;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -32,7 +29,7 @@ final class EntryController extends AbstractController
 
     private function parse(string $raw, \DateTimeZone $tz): ?\DateTimeImmutable
     {
-        $raw = trim((string) $raw);
+        $raw = trim($raw);
         if ('' === $raw) {
             return null;
         }
@@ -47,7 +44,7 @@ final class EntryController extends AbstractController
     }
 
     #[Route(path: '', name: 'worktime_entry_create', methods: ['POST'])]
-    public function create(Request $request, WorkBlockRepository $blocks, WorkBlockValidator $validator, AuditLogger $audit): Response
+    public function create(Request $request, WorkBlockMutator $mutator): Response
     {
         if (!$this->isCsrfTokenValid('worktime.entry', (string) $request->request->get('_token'))) {
             $this->addFlash('error', 'Ungültiges Token.');
@@ -61,44 +58,20 @@ final class EntryController extends AbstractController
         $start = $this->parse($request->request->getString('start'), $tz);
         $end = $this->parse($request->request->getString('end'), $tz);
 
-        if (null === $start || null === $end) {
+        if (null === $start) {
             $this->addFlash('error', 'Bitte Beginn und Ende angeben.');
 
             return $this->redirectIndex();
         }
-        $error = $validator->validateInterval($start, $end);
-        if (null !== $error) {
-            $this->addFlash('error', $error);
 
-            return $this->redirectIndex();
-        }
-
-        if ([] !== $blocks->findOverlapping($user, $start, $end, null)) {
-            $this->addFlash('error', 'Der Zeitraum überschneidet sich mit einer bestehenden Buchung.');
-
-            return $this->redirectIndex();
-        }
-
-        $block = new WorkBlock();
-        $block->setUser($user);
-        $block->setStart($start);
-        $block->setEnd($end);
-        $block->setSource(WorkBlock::SOURCE_MANUAL);
-        $blocks->save($block);
-
-        $audit->log($user, $user, AuditLog::ACTION_BLOCK_CREATE, 'work_block', $block->getId(), [
-            'start' => $start->format('c'),
-            'end' => $end->format('c'),
-            'source' => WorkBlock::SOURCE_MANUAL,
-        ]);
-
-        $this->addFlash('success', 'Eintrag gespeichert.');
+        $error = $mutator->create($user, $user, $start, $end);
+        $this->addFlash($error ?? 'success', $error ?? 'Eintrag gespeichert.');
 
         return $this->redirectIndex();
     }
 
     #[Route(path: '/{id}/edit', name: 'worktime_entry_edit', methods: ['POST'])]
-    public function edit(int $id, Request $request, WorkBlockRepository $blocks, WorkBlockValidator $validator, AuditLogger $audit): Response
+    public function edit(int $id, Request $request, WorkBlockRepository $blocks, WorkBlockMutator $mutator): Response
     {
         if (!$this->isCsrfTokenValid('worktime.entry', (string) $request->request->get('_token'))) {
             $this->addFlash('error', 'Ungültiges Token.');
@@ -121,48 +94,15 @@ final class EntryController extends AbstractController
 
             return $this->redirectIndex();
         }
-        $error = $validator->validateInterval($start, $end);
-        if (null !== $error) {
-            $this->addFlash('error', $error);
 
-            return $this->redirectIndex();
-        }
-
-        if (null === $end) {
-            $existingOpen = $blocks->findOpenBlock($user);
-            if (null !== $existingOpen && $existingOpen->getId() !== $block->getId()) {
-                $this->addFlash('error', 'Es gibt bereits eine laufende Buchung. Bitte zuerst beenden.');
-
-                return $this->redirectIndex();
-            }
-        }
-
-        if (null !== $end && [] !== $blocks->findOverlapping($user, $start, $end, $block->getId())) {
-            $this->addFlash('error', 'Der Zeitraum überschneidet sich mit einer bestehenden Buchung.');
-
-            return $this->redirectIndex();
-        }
-
-        $old = [
-            'start' => $block->getStart()->format('c'),
-            'end' => $block->getEnd()?->format('c'),
-        ];
-        $block->setStart($start);
-        $block->setEnd($end);
-        $blocks->save($block);
-
-        $audit->log($user, $user, AuditLog::ACTION_BLOCK_EDIT, 'work_block', $block->getId(), [
-            'old' => $old,
-            'new' => ['start' => $start->format('c'), 'end' => $end?->format('c')],
-        ]);
-
-        $this->addFlash('success', 'Eintrag aktualisiert.');
+        $error = $mutator->update($user, $block, $start, $end);
+        $this->addFlash($error ?? 'success', $error ?? 'Eintrag aktualisiert.');
 
         return $this->redirectIndex();
     }
 
     #[Route(path: '/{id}/delete', name: 'worktime_entry_delete', methods: ['POST'])]
-    public function delete(int $id, Request $request, WorkBlockRepository $blocks, AuditLogger $audit): Response
+    public function delete(int $id, Request $request, WorkBlockRepository $blocks, WorkBlockMutator $mutator): Response
     {
         if (!$this->isCsrfTokenValid('worktime.entry', (string) $request->request->get('_token'))) {
             $this->addFlash('error', 'Ungültiges Token.');
@@ -177,15 +117,7 @@ final class EntryController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        $details = [
-            'start' => $block->getStart()->format('c'),
-            'end' => $block->getEnd()?->format('c'),
-        ];
-        $blockId = $block->getId();
-        $blocks->remove($block);
-
-        $audit->log($user, $user, AuditLog::ACTION_BLOCK_DELETE, 'work_block', $blockId, $details);
-
+        $mutator->delete($user, $block);
         $this->addFlash('success', 'Eintrag gelöscht.');
 
         return $this->redirectIndex();

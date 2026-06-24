@@ -1,0 +1,189 @@
+<style>
+    @font-face {
+        font-family: 'SpaceGrotesk';
+        src: url('{{ asset('bundles/worktime/fonts/SpaceGrotesk-Medium.ttf') }}') format('truetype');
+        font-weight: 500; font-display: swap;
+    }
+    @font-face {
+        font-family: 'SpaceGrotesk';
+        src: url('{{ asset('bundles/worktime/fonts/SpaceGrotesk-Bold.ttf') }}') format('truetype');
+        font-weight: 700; font-display: swap;
+    }
+    @font-face {
+        font-family: 'WtInter';
+        src: url('{{ asset('bundles/worktime/fonts/Inter-Regular.ttf') }}') format('truetype');
+        font-weight: 400; font-display: swap;
+    }
+    @font-face {
+        font-family: 'WtInter';
+        src: url('{{ asset('bundles/worktime/fonts/Inter-SemiBold.ttf') }}') format('truetype');
+        font-weight: 600; font-display: swap;
+    }
+
+    .wt {
+        --navy: #2C4A73; --navy-deep: #21395a; --mint: #2EC4A9; --mint-700: #15756B;
+        --ice: #F2F6F8; --ink: #22344E; --hair: #DCE3EA; --white: #ffffff;
+        --body: 'WtInter', -apple-system, "Segoe UI", Roboto, sans-serif;
+        --display: 'SpaceGrotesk', 'WtInter', sans-serif;
+        max-width: 760px; margin: 0 auto; color: var(--ink); font-family: var(--body);
+    }
+    .wt *, .wt *::before, .wt *::after { box-sizing: border-box; }
+
+    .wt-eyebrow {
+        display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap;
+        margin: 0 .25rem 1rem; font-size: .72rem; letter-spacing: .18em;
+        text-transform: uppercase; color: var(--mint-700); font-weight: 600;
+    }
+    .wt-eyebrow .wt-eyebrow__date { color: #9aa7b4; letter-spacing: .08em; }
+    .wt-eyebrow .wt-back { color: var(--mint-700); text-decoration: none; letter-spacing: .08em; }
+    .wt-eyebrow .wt-back:hover { color: var(--navy); }
+
+    /* ---- Hero ---- */
+    .wt-hero {
+        position: relative; overflow: hidden; border-radius: 20px;
+        border: 1px solid var(--hair); background: var(--white);
+        padding: 2.4rem 2rem; text-align: center;
+        transition: background .5s ease, border-color .5s ease, color .5s ease;
+    }
+    .wt-hero__pill {
+        display: inline-flex; align-items: center; gap: .5rem;
+        font-size: .72rem; letter-spacing: .16em; text-transform: uppercase;
+        font-weight: 600; padding: .35rem .8rem; border-radius: 999px;
+    }
+    .wt-hero__clock {
+        font-family: var(--display); font-weight: 700; line-height: 1;
+        font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+        letter-spacing: .01em;
+    }
+    .wt-hero__sub { font-size: .92rem; margin-top: .55rem; }
+
+    .wt-punch {
+        -webkit-appearance: none; appearance: none; cursor: pointer;
+        border: 0; border-radius: 999px; font-family: var(--body); font-weight: 600;
+        font-size: 1.05rem; letter-spacing: .02em; padding: .95rem 2.4rem;
+        margin-top: 1.6rem; display: inline-flex; align-items: center; gap: .6rem;
+        transition: transform .08s ease, box-shadow .2s ease, background .2s ease;
+    }
+    .wt-punch:active { transform: translateY(1px) scale(.99); }
+    .wt-punch:focus-visible { outline: 3px solid var(--mint); outline-offset: 3px; }
+
+    /* OUT state (ready to clock in) */
+    .wt-hero--out { background: var(--white); }
+    .wt-hero--out .wt-hero__pill { background: var(--ice); color: #7d8a98; }
+    .wt-hero--out .wt-hero__clock { color: var(--navy); font-size: 2.1rem; font-weight: 500; }
+    .wt-hero--out .wt-hero__sub { color: #7d8a98; }
+    .wt-punch--in {
+        background: var(--mint); color: #06312b;
+        box-shadow: 0 8px 22px -8px rgba(46,196,169,.8);
+    }
+    .wt-punch--in:hover { background: #28b39a; }
+
+    /* IN state — running clock: SICODA mint background (signature) */
+    .wt-hero--in {
+        background: radial-gradient(120% 140% at 50% -10%, #34d6b8 0%, var(--mint) 55%, #20a48d 100%);
+        border-color: transparent; color: #06312b;
+    }
+    .wt-hero--in .wt-hero__pill { background: rgba(6,49,43,.14); color: #06312b; }
+    .wt-hero--in .wt-hero__clock { color: #06312b; font-size: clamp(3.2rem, 12vw, 4.6rem); }
+    .wt-hero--in .wt-hero__sub { color: #0a4a40; }
+    .wt-punch--out {
+        background: #06312b; color: #fff;
+        box-shadow: 0 10px 24px -10px rgba(6,49,43,.6);
+    }
+    .wt-punch--out:hover { background: #0a4a40; }
+
+    .wt-dot { width: .55rem; height: .55rem; border-radius: 999px; background: var(--mint); display: inline-block; }
+    .wt-hero--in .wt-dot { background: #06312b; }
+
+    /* ---- Stat tiles ---- */
+    .wt-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+    .wt-stat { background: var(--ice); border: 1px solid var(--hair); border-radius: 16px; padding: 1.1rem 1.3rem; }
+    .wt-stat__label { font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: #8090a0; font-weight: 600; }
+    .wt-stat__value { font-family: var(--display); font-weight: 700; font-size: 2rem; color: var(--navy); margin-top: .25rem; font-variant-numeric: tabular-nums; }
+    .wt-stat__value--accent { color: var(--mint-700); }
+    .wt-stat__value--neg { color: #c0392b; }
+
+    /* ---- Timeline ---- */
+    .wt-sessions { margin-top: 1.6rem; }
+    .wt-sessions__title { font-size: .72rem; letter-spacing: .16em; text-transform: uppercase; color: #8090a0; font-weight: 600; margin: 0 .25rem .75rem; }
+    .wt-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; padding: .85rem 1rem; border: 1px solid var(--hair); border-radius: 14px; background: var(--white); }
+    .wt-row + .wt-row { margin-top: .55rem; }
+    .wt-row--live { border-color: var(--mint); background: linear-gradient(0deg, rgba(46,196,169,.06), rgba(46,196,169,.06)), var(--white); }
+    .wt-row--review { border-color: #f0c36d; background: linear-gradient(0deg, rgba(240,195,109,.10), rgba(240,195,109,.10)), var(--white); }
+    .wt-row__time { font-family: var(--display); font-weight: 500; font-variant-numeric: tabular-nums; color: var(--navy); white-space: nowrap; }
+    .wt-row__time .wt-arrow { color: var(--hair); margin: 0 .5rem; }
+    .wt-row__time .wt-running { color: var(--mint-700); font-weight: 700; }
+    .wt-row__dur { font-family: var(--display); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+    .wt-row__bullet { width: .6rem; height: .6rem; border-radius: 999px; background: var(--navy); }
+    .wt-row--live .wt-row__bullet { background: var(--mint); }
+    .wt-flag { font-size: .7rem; font-weight: 600; color: #8a6116; background: rgba(240,195,109,.25); border-radius: 999px; padding: .2rem .6rem; white-space: nowrap; }
+    .wt-empty { padding: 1.6rem; text-align: center; color: #9aa7b4; border: 1px dashed var(--hair); border-radius: 14px; background: var(--white); }
+
+    @media (max-width: 540px) {
+        .wt-stats { grid-template-columns: 1fr; }
+        .wt-hero { padding: 2rem 1.2rem; }
+    }
+    @media (prefers-reduced-motion: no-preference) {
+        .wt-hero--in .wt-dot { animation: wt-pulse 1.8s ease-out infinite; }
+        @keyframes wt-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(6,49,43,.45); }
+            100% { box-shadow: 0 0 0 .8rem rgba(6,49,43,0); }
+        }
+    }
+
+    .wt-sessions__head { display: flex; align-items: center; justify-content: space-between; margin: 0 .25rem .75rem; gap: 1rem; }
+    .wt-add {
+        -webkit-appearance: none; appearance: none; cursor: pointer;
+        border: 1px solid var(--mint); background: var(--white); color: var(--mint-700);
+        font-family: var(--body); font-weight: 600; font-size: .85rem;
+        border-radius: 999px; padding: .5rem 1rem; display: inline-flex; align-items: center; gap: .45rem;
+    }
+    .wt-add:hover { background: rgba(46,196,169,.08); }
+    .wt-add:focus-visible { outline: 3px solid var(--mint); outline-offset: 2px; }
+    .wt-row { grid-template-columns: auto 1fr auto auto; }
+    .wt-edit {
+        -webkit-appearance: none; appearance: none; cursor: pointer;
+        border: 0; background: transparent; color: #9aa7b4; padding: .35rem .5rem; border-radius: 8px;
+    }
+    .wt-edit:hover { color: var(--navy); background: var(--ice); }
+    .wt-edit:focus-visible { outline: 2px solid var(--mint); outline-offset: 1px; }
+
+    @media (max-width: 540px) { .wt-stats { grid-template-columns: 1fr; } }
+
+    /* ---- Entry modal ---- */
+    .wt-modal .modal-content { border: 1px solid var(--hair); border-radius: 18px; overflow: hidden; }
+    .wt-modal .modal-header { border-bottom: 1px solid var(--hair); padding: 1.1rem 1.3rem; }
+    .wt-modal .modal-title { font-family: var(--display); font-weight: 700; color: var(--navy); font-size: 1.1rem; }
+    .wt-modal .modal-body { padding: 1.3rem; }
+    .wt-modal .modal-footer { border-top: 1px solid var(--hair); padding: .9rem 1.3rem; }
+    .wt-field__label { font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: #8090a0; font-weight: 600; margin-bottom: .35rem; display: block; }
+    .wt-times { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .wt-input {
+        width: 100%; font-family: var(--display); font-variant-numeric: tabular-nums;
+        font-size: 1.15rem; color: var(--navy); background: var(--white);
+        border: 1px solid var(--hair); border-radius: 12px; padding: .7rem .85rem;
+    }
+    .wt-input:focus { outline: 0; border-color: var(--mint); box-shadow: 0 0 0 3px rgba(46,196,169,.18); }
+    .wt-duration {
+        margin-top: 1.1rem; padding: .7rem .95rem; border-radius: 12px;
+        background: var(--ice); color: var(--mint-700); font-weight: 600;
+        display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    }
+    .wt-duration__value { font-family: var(--display); font-weight: 700; font-variant-numeric: tabular-nums; }
+    .wt-duration--invalid { background: #fbeceA; color: #9a3a2a; }
+
+    /* ---- Calendar grid (standalone: literal colors, no .wt scope needed) ---- */
+    .wt-cal { width: 100%; border-collapse: separate; border-spacing: .4rem; table-layout: fixed; font-family: 'SpaceGrotesk', sans-serif; }
+    .wt-cal th { font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: #8090a0; font-weight: 600; padding: .3rem; text-align: center; }
+    .wt-cal td { vertical-align: top; height: 5.4rem; border: 1px solid #DCE3EA; border-radius: 12px; background: #ffffff; padding: .4rem .5rem; }
+    .wt-cal td.wt-cal--empty { background: transparent; border-color: transparent; }
+    .wt-cal td.wt-cal--weekend { background: #F2F6F8; }
+    .wt-cal__day { font-weight: 700; color: #2C4A73; font-size: .9rem; display: flex; align-items: center; justify-content: space-between; }
+    .wt-cal__rev { width: .5rem; height: .5rem; border-radius: 999px; background: #f0c36d; display: inline-block; }
+    .wt-cal__ist { font-weight: 700; color: #22344E; font-variant-numeric: tabular-nums; margin-top: .35rem; }
+    .wt-cal__soll { font-size: .7rem; color: #9aa7b4; font-variant-numeric: tabular-nums; }
+    .wt-cal__saldo { display: inline-block; margin-top: .25rem; font-size: .78rem; font-weight: 600; font-variant-numeric: tabular-nums; text-decoration: none; border-radius: 8px; padding: .05rem .35rem; }
+    .wt-cal__saldo--pos { color: #15756B; }
+    .wt-cal__saldo--neg { color: #c0392b; }
+    .wt-cal__saldo:hover { background: #F2F6F8; }
+</style>
