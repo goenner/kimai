@@ -39,7 +39,7 @@ final class MenuSubscriber implements EventSubscriberInterface
             }
 
             $contract->addChild(
-                new MenuItemModel('worktime', 'Arbeitszeit', 'worktime_index', [], 'fas fa-business-time')
+                new MenuItemModel('worktime', 'Stempeluhr', 'worktime_index', [], 'fas fa-business-time')
             );
             $contract->addChild(
                 new MenuItemModel('worktime_vacation', 'Urlaub', 'worktime_vacation', [], 'fas fa-umbrella-beach')

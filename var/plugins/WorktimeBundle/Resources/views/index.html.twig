@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block page_title %}{{ 'Arbeitszeit'|trans }}{% endblock %}
+{% block page_title %}{{ 'Stempeluhr'|trans }}{% endblock %}
 
 {% block stylesheets %}
     {{ parent() }}
@@ -183,7 +183,7 @@
          data-open-since="{{ is_in ? open_block.start.getTimestamp() : '' }}">
 
         <div class="wt-eyebrow">
-            <span>{{ 'Arbeitszeit'|trans }}</span>
+            <span>{{ 'Stempeluhr'|trans }}</span>
             <span class="wt-eyebrow__date">{{ today|day_name }}, {{ today|date_short }}</span>
         </div>
 
