@@ -68,6 +68,23 @@ class WorkBlockRepository extends ServiceEntityRepository
         return $qb->getQuery()->getResult();
     }
 
+    /**
+     * Open blocks (end IS NULL) of any user whose start is before the given
+     * instant — used to auto-close forgotten punch-outs from previous days.
+     *
+     * @return WorkBlock[]
+     */
+    public function findOpenStartedBefore(\DateTimeInterface $before): array
+    {
+        return $this->createQueryBuilder('b')
+            ->andWhere('b.end IS NULL')
+            ->andWhere('b.start < :before')
+            ->setParameter('before', $before)
+            ->orderBy('b.start', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function save(WorkBlock $block): void
     {
         $em = $this->getEntityManager();

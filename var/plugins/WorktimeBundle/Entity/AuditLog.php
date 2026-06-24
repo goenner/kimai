@@ -27,6 +27,7 @@ class AuditLog
     public const ACTION_ABSENCE_APPROVE = 'absence_approve';
     public const ACTION_ABSENCE_REJECT = 'absence_reject';
     public const ACTION_BALANCE_CORRECTION = 'balance_correction';
+    public const ACTION_BLOCK_AUTO_CLOSE = 'block_auto_close';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
