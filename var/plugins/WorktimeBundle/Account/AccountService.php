@@ -84,6 +84,36 @@ class AccountService
     }
 
     /**
+     * Soll/Ist/Saldo summed over an arbitrary calendar range [from, to] (e.g. a week).
+     * The calendar dates are anchored in the user timezone, like monthAccount().
+     *
+     * @return array{targetSeconds: int, workedSeconds: int, balanceSeconds: int, has_contract: bool}
+     */
+    public function rangeSummary(User $user, \DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        $contract = $this->contracts->findForUser($user);
+        if (null === $contract) {
+            return ['targetSeconds' => 0, 'workedSeconds' => 0, 'balanceSeconds' => 0, 'has_contract' => false];
+        }
+
+        $tz = new \DateTimeZone($user->getTimezone());
+        $start = new \DateTimeImmutable($from->format('Y-m-d').' 00:00:00', $tz);
+        $end = new \DateTimeImmutable($to->format('Y-m-d').' 00:00:00', $tz);
+        $days = $this->buildDays($user, $contract, $start, $end, $tz);
+
+        $target = 0;
+        $worked = 0;
+        $balance = 0;
+        foreach ($days as $d) {
+            $target += $d->targetSeconds;
+            $worked += $d->workedSeconds;
+            $balance += $d->balanceSeconds;
+        }
+
+        return ['targetSeconds' => $target, 'workedSeconds' => $worked, 'balanceSeconds' => $balance, 'has_contract' => true];
+    }
+
+    /**
      * Build a DayAccount for every calendar day in [from, to] (both at 00:00 local).
      *
      * @return DayAccount[]

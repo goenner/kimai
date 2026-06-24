@@ -47,6 +47,12 @@ final class MenuSubscriber implements EventSubscriberInterface
             $contract->addChild(
                 new MenuItemModel('worktime_account', 'Zeitkonto', 'worktime_account', [], 'fas fa-scale-balanced')
             );
+
+            if ($this->security->isGranted('worktime_manage')) {
+                $contract->addChild(
+                    new MenuItemModel('worktime_overview', 'Team-Übersicht', 'worktime_account_overview', [], 'fas fa-users')
+                );
+            }
         }
 
         if ($this->security->isGranted('worktime_manage')) {

@@ -95,6 +95,50 @@ final class AccountController extends AbstractController
         ]);
     }
 
+    #[Route(path: '/overview', name: 'worktime_account_overview', methods: ['GET'])]
+    #[IsGranted('worktime_manage')]
+    public function overview(Request $request, AccountService $accounts, UserRepository $users): Response
+    {
+        $now = new \DateTimeImmutable('now');
+
+        // Month selection
+        $year = (int) $request->query->get('year', $now->format('Y'));
+        $month = (int) $request->query->get('month', $now->format('n'));
+        if ($month < 1 || $month > 12) {
+            $month = (int) $now->format('n');
+        }
+        $monthLabel = new \DateTimeImmutable(\sprintf('%04d-%02d-01', $year, $month));
+
+        // Week selection (reference date -> Monday..Sunday of that week)
+        $ref = $request->query->get('week');
+        $refDate = \is_string($ref) ? (\DateTimeImmutable::createFromFormat('Y-m-d', $ref) ?: $now) : $now;
+        $weekStart = $refDate->modify('monday this week')->setTime(0, 0);
+        $weekEnd = $weekStart->modify('+6 days');
+
+        $rows = [];
+        foreach ($users->findBy(['enabled' => true], ['username' => 'ASC']) as $user) {
+            $rows[] = [
+                'user' => $user,
+                'week' => $accounts->rangeSummary($user, $weekStart, $weekEnd),
+                'month' => $accounts->monthAccount($user, $year, $month),
+            ];
+        }
+
+        return $this->render('@Worktime/account/overview.html.twig', [
+            'rows' => $rows,
+            'week_start' => $weekStart,
+            'week_end' => $weekEnd,
+            'prev_week' => $weekStart->modify('-7 days'),
+            'next_week' => $weekStart->modify('+7 days'),
+            'year' => $year,
+            'month' => $month,
+            'month_label' => $monthLabel,
+            'prev' => $monthLabel->modify('-1 month'),
+            'next' => $monthLabel->modify('+1 month'),
+            'warn_threshold_seconds' => self::OVERTIME_WARN_SECONDS,
+        ]);
+    }
+
     #[Route(path: '/correct', name: 'worktime_account_correct', methods: ['POST'])]
     #[IsGranted('worktime_manage')]
     public function correct(Request $request, UserRepository $users, BalanceCorrectionRepository $corrections, AuditLogger $audit): Response

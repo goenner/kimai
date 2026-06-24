@@ -1,0 +1,73 @@
+{% extends 'base.html.twig' %}
+
+{% block page_title %}{{ 'Team-Übersicht'|trans }}{% endblock %}
+
+{% macro hm(seconds) %}{% apply spaceless %}
+    {% set s = seconds < 0 ? -seconds : seconds %}
+    {{ seconds < 0 ? '−' : '' }}{{ (s // 3600) }}:{{ '%02d'|format((s % 3600) // 60) }}
+{% endapply %}{% endmacro %}
+
+{% block main %}
+    {% import _self as fmt %}
+
+    <div class="alert alert-info">{{ 'Hinweis: Feiertage werden noch nicht berücksichtigt; an Feiertagen entspricht das Soll den Vertragsstunden.'|trans }}</div>
+
+    <div class="card">
+        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div class="btn-list align-items-center">
+                <span class="text-muted small text-uppercase me-1">{{ 'Woche'|trans }}</span>
+                <a class="btn btn-sm" href="{{ path('worktime_account_overview', {week: prev_week|date('Y-m-d'), year: year, month: month}) }}">&larr;</a>
+                <span class="fw-bold">{{ 'KW'|trans }} {{ week_start|date('W') }} · {{ week_start|date('d.m.') }}–{{ week_end|date('d.m.Y') }}</span>
+                <a class="btn btn-sm" href="{{ path('worktime_account_overview', {week: next_week|date('Y-m-d'), year: year, month: month}) }}">&rarr;</a>
+            </div>
+            <div class="btn-list align-items-center">
+                <span class="text-muted small text-uppercase me-1">{{ 'Monat'|trans }}</span>
+                <a class="btn btn-sm" href="{{ path('worktime_account_overview', {week: week_start|date('Y-m-d'), year: prev|date('Y'), month: prev|date('n')}) }}">&larr;</a>
+                <span class="fw-bold">{{ month_label|month_name }} {{ year }}</span>
+                <a class="btn btn-sm" href="{{ path('worktime_account_overview', {week: week_start|date('Y-m-d'), year: next|date('Y'), month: next|date('n')}) }}">&rarr;</a>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2" class="align-middle">{{ 'Mitarbeiter'|trans }}</th>
+                        <th colspan="3" class="text-center border-start">{{ 'Woche'|trans }}</th>
+                        <th colspan="3" class="text-center border-start">{{ 'Monat'|trans }}</th>
+                        <th rowspan="2" class="align-middle text-end border-start">{{ 'Saldo gesamt'|trans }}</th>
+                        <th rowspan="2"></th>
+                    </tr>
+                    <tr>
+                        <th class="text-end border-start">{{ 'Soll'|trans }}</th>
+                        <th class="text-end">{{ 'Ist'|trans }}</th>
+                        <th class="text-end">{{ 'Saldo'|trans }}</th>
+                        <th class="text-end border-start">{{ 'Soll'|trans }}</th>
+                        <th class="text-end">{{ 'Ist'|trans }}</th>
+                        <th class="text-end">{{ 'Saldo'|trans }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for row in rows %}
+                    <tr>
+                        <td>{{ row.user.displayName }}</td>
+                        {% if not row.week.has_contract %}
+                            <td colspan="7" class="text-center"><span class="badge bg-yellow-lt">{{ 'kein Vertrag'|trans }}</span></td>
+                        {% else %}
+                            <td class="text-end border-start">{{ fmt.hm(row.week.targetSeconds) }}</td>
+                            <td class="text-end">{{ fmt.hm(row.week.workedSeconds) }}</td>
+                            <td class="text-end {{ row.week.balanceSeconds < 0 ? 'text-danger' : (row.week.balanceSeconds > 0 ? 'text-success' : '') }}">{{ fmt.hm(row.week.balanceSeconds) }}</td>
+                            <td class="text-end border-start">{{ fmt.hm(row.month.targetSeconds) }}</td>
+                            <td class="text-end">{{ fmt.hm(row.month.workedSeconds) }}</td>
+                            <td class="text-end {{ row.month.balanceSeconds < 0 ? 'text-danger' : (row.month.balanceSeconds > 0 ? 'text-success' : '') }}">{{ fmt.hm(row.month.balanceSeconds) }}</td>
+                            <td class="text-end border-start fw-bold {{ (row.month.cumulativeSeconds < 0 or row.month.cumulativeSeconds >= warn_threshold_seconds) ? 'text-danger' : 'text-success' }}">{{ fmt.hm(row.month.cumulativeSeconds) }}</td>
+                        {% endif %}
+                        <td class="text-end">
+                            <a class="btn btn-sm" href="{{ path('worktime_account', {user: row.user.id, year: year, month: month}) }}">{{ 'Details'|trans }}</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}
