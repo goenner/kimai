@@ -2,6 +2,11 @@
 
 {% block page_title %}{{ 'Zeitkonto'|trans }} — {{ viewed_user.displayName }}{% endblock %}
 
+{% block stylesheets %}
+    {{ parent() }}
+    {% include '@Worktime/_wt_styles.html.twig' %}
+{% endblock %}
+
 {% macro hm(seconds) %}{% apply spaceless %}
     {% set s = seconds < 0 ? -seconds : seconds %}
     {{ seconds < 0 ? '−' : '' }}{{ (s // 3600) }}:{{ '%02d'|format((s % 3600) // 60) }}
@@ -50,25 +55,41 @@
                 <a class="btn btn-sm" href="{{ path('worktime_account', {year: next|date('Y'), month: next|date('n'), user: viewed_user.id}) }}">{{ 'Folgemonat'|trans }} &rarr;</a>
             </div>
         </div>
-        <div class="table-responsive">
-            <table class="table table-vcenter card-table">
-                <thead><tr>
-                    <th>{{ 'Tag'|trans }}</th><th class="text-end">{{ 'Soll'|trans }}</th><th class="text-end">{{ 'Ist'|trans }}</th>
-                    <th class="text-end">{{ 'Saldo'|trans }}</th><th>{{ 'Abwesenheit'|trans }}</th>
-                </tr></thead>
-                <tbody>
-                {% for d in data.days %}
-                    {% set weekend = d.targetSeconds == 0 and d.workedSeconds == 0 and d.note is null %}
-                    <tr class="{{ weekend ? 'text-muted' : '' }}">
-                        <td>{{ d.date|date_weekday }}</td>
-                        <td class="text-end">{{ fmt.hm(d.targetSeconds) }}</td>
-                        <td class="text-end">{{ fmt.hm(d.workedSeconds) }}</td>
-                        <td class="text-end {{ d.balanceSeconds < 0 ? 'text-danger' : (d.balanceSeconds > 0 ? 'text-success' : '') }}">{{ fmt.hm(d.balanceSeconds) }}</td>
-                        <td>{% if d.note %}<span class="badge bg-azure-lt">{{ d.note }}</span>{% endif %}</td>
-                    </tr>
-                {% endfor %}
-                </tbody>
-            </table>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="wt-cal">
+                    <thead><tr>
+                        {% for wd in ['Mo','Di','Mi','Do','Fr','Sa','So'] %}<th>{{ wd|trans }}</th>{% endfor %}
+                    </tr></thead>
+                    <tbody>
+                    {% for week in calendar_weeks %}
+                        <tr>
+                        {% for d in week %}
+                            {% if d is null %}
+                                <td class="wt-cal--empty"></td>
+                            {% else %}
+                                {% set weekend = (d.date|date('N')) > 5 %}
+                                <td class="{{ weekend ? 'wt-cal--weekend' : '' }}">
+                                    <div class="wt-cal__day">
+                                        <span>{{ d.date|date('j') }}</span>
+                                        {% if review_days[d.date|date('Y-m-d')] is defined %}<span class="wt-cal__rev" title="{{ 'Automatische Buchung – bitte prüfen'|trans }}"></span>{% endif %}
+                                    </div>
+                                    {% if d.note %}
+                                        <div><span class="badge bg-azure-lt">{{ d.note }}</span></div>
+                                    {% endif %}
+                                    <div class="wt-cal__ist">{{ fmt.hm(d.workedSeconds) }}</div>
+                                    <div class="wt-cal__soll">/ {{ fmt.hm(d.targetSeconds) }}</div>
+                                    <a class="wt-cal__saldo {{ d.balanceSeconds < 0 ? 'wt-cal__saldo--neg' : (d.balanceSeconds > 0 ? 'wt-cal__saldo--pos' : '') }}"
+                                       href="{{ path('worktime_account_day', {date: d.date|date('Y-m-d'), user: viewed_user.id}) }}"
+                                       title="{{ 'Tagesbuchung öffnen'|trans }}">{{ fmt.hm(d.balanceSeconds) }}</a>
+                                </td>
+                            {% endif %}
+                        {% endfor %}
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 

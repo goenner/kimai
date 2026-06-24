@@ -16,6 +16,7 @@ use KimaiPlugin\WorktimeBundle\Audit\AuditLogger;
 use KimaiPlugin\WorktimeBundle\Entity\AuditLog;
 use KimaiPlugin\WorktimeBundle\Entity\BalanceCorrection;
 use KimaiPlugin\WorktimeBundle\Repository\BalanceCorrectionRepository;
+use KimaiPlugin\WorktimeBundle\Repository\WorkBlockRepository;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -53,7 +54,7 @@ final class AccountController extends AbstractController
     }
 
     #[Route(path: '', name: 'worktime_account', methods: ['GET'])]
-    public function month(Request $request, AccountService $accounts, UserRepository $users): Response
+    public function month(Request $request, AccountService $accounts, UserRepository $users, WorkBlockRepository $blocks): Response
     {
         $user = $this->resolveUser($request, $users);
         $now = new \DateTimeImmutable('now');
@@ -66,6 +67,15 @@ final class AccountController extends AbstractController
         $data = $accounts->monthAccount($user, $year, $month);
         $current = new \DateTimeImmutable(\sprintf('%04d-%02d-01', $year, $month));
 
+        // Days that have an auto-closed (review) block, keyed by local Y-m-d.
+        $tz = new \DateTimeZone($user->getTimezone());
+        $monthStart = new \DateTimeImmutable(\sprintf('%04d-%02d-01 00:00:00', $year, $month), $tz);
+        $monthEnd = $monthStart->modify('first day of next month');
+        $reviewDays = [];
+        foreach ($blocks->findNeedsReviewBetween($user, $monthStart, $monthEnd) as $block) {
+            $reviewDays[$block->getStart()->setTimezone($tz)->format('Y-m-d')] = true;
+        }
+
         return $this->render('@Worktime/account/month.html.twig', [
             'viewed_user' => $user,
             'year' => $year,
@@ -74,9 +84,40 @@ final class AccountController extends AbstractController
             'prev' => $current->modify('-1 month'),
             'next' => $current->modify('+1 month'),
             'data' => $data,
+            'calendar_weeks' => $this->buildCalendarWeeks($data['days']),
+            'review_days' => $reviewDays,
             'warn_overtime' => $data['cumulativeSeconds'] >= self::OVERTIME_WARN_SECONDS,
             'warn_threshold_seconds' => self::OVERTIME_WARN_SECONDS,
         ]);
+    }
+
+    /**
+     * Lay the month's DayAccount list into calendar weeks (Mon–Sun), padding
+     * leading/trailing cells with null.
+     *
+     * @param \KimaiPlugin\WorktimeBundle\Model\DayAccount[] $days
+     *
+     * @return array<int, array<int, \KimaiPlugin\WorktimeBundle\Model\DayAccount|null>>
+     */
+    private function buildCalendarWeeks(array $days): array
+    {
+        if ([] === $days) {
+            return [];
+        }
+
+        $cells = [];
+        $leading = (int) $days[0]->date->format('N') - 1; // Mon=0 .. Sun=6
+        for ($i = 0; $i < $leading; ++$i) {
+            $cells[] = null;
+        }
+        foreach ($days as $day) {
+            $cells[] = $day;
+        }
+        while (0 !== \count($cells) % 7) {
+            $cells[] = null;
+        }
+
+        return array_chunk($cells, 7);
     }
 
     #[Route(path: '/year', name: 'worktime_account_year', methods: ['GET'])]

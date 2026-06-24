@@ -85,6 +85,25 @@ class WorkBlockRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Review-flagged blocks (auto-closed) of the user starting within [from, to).
+     *
+     * @return WorkBlock[]
+     */
+    public function findNeedsReviewBetween(User $user, \DateTimeInterface $from, \DateTimeInterface $to): array
+    {
+        return $this->createQueryBuilder('b')
+            ->andWhere('b.user = :user')
+            ->andWhere('b.needsReview = true')
+            ->andWhere('b.start >= :from')
+            ->andWhere('b.start < :to')
+            ->setParameter('user', $user)
+            ->setParameter('from', $from)
+            ->setParameter('to', $to)
+            ->getQuery()
+            ->getResult();
+    }
+
     public function save(WorkBlock $block): void
     {
         $em = $this->getEntityManager();
