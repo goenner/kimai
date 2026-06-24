@@ -21,19 +21,30 @@ final class MenuSubscriber implements EventSubscriberInterface
 
     public static function getSubscribedEvents(): array
     {
-        return [ConfigureMainMenuEvent::class => ['onMenuConfigure', 100]];
+        // Run after the core menu subscriber (priority 100) so the core
+        // "Employment contract" (id "contract") parent already exists.
+        return [ConfigureMainMenuEvent::class => ['onMenuConfigure', -100]];
     }
 
     public function onMenuConfigure(ConfigureMainMenuEvent $event): void
     {
         if ($this->security->isGranted('worktime_view_own')) {
-            $event->getMenu()->addChild(
+            // Nest the worktime entries under the core "Employment contract" menu.
+            // If the current user lacks the core "hours" permission, that parent was
+            // not created, so we add it ourselves to keep the entries reachable.
+            $contract = $event->findById('contract');
+            if (null === $contract) {
+                $contract = new MenuItemModel('contract', 'work_contract', null, [], 'contract');
+                $event->getMenu()->addChild($contract);
+            }
+
+            $contract->addChild(
                 new MenuItemModel('worktime', 'Arbeitszeit', 'worktime_index', [], 'fas fa-business-time')
             );
-            $event->getMenu()->addChild(
+            $contract->addChild(
                 new MenuItemModel('worktime_vacation', 'Urlaub', 'worktime_vacation', [], 'fas fa-umbrella-beach')
             );
-            $event->getMenu()->addChild(
+            $contract->addChild(
                 new MenuItemModel('worktime_account', 'Zeitkonto', 'worktime_account', [], 'fas fa-scale-balanced')
             );
         }
