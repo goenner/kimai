@@ -1,146 +1,114 @@
 {% extends 'base.html.twig' %}
 
-{% block page_title %}{{ 'Stempeluhr'|trans }}{% endblock %}
+{% block page_title %}Stempeluhr{% endblock %}
 
 {% block stylesheets %}
     {{ parent() }}
     {% include '@Worktime/_wt_styles.html.twig' %}
 {% endblock %}
 
+{% block page_content_start %}{% include '@Worktime/_flash.html.twig' %}{% endblock %}
+
 {% block main %}
     {% set is_in = open_block is not null %}
-    <div class="wt"
+    {% set review_count = today_blocks|filter(b => b.needsReview)|length %}
+    <div class="wt wt--narrow"
          data-server-now="{{ server_now }}"
          data-today-base="{{ today_seconds }}"
          data-open-since="{{ is_in ? open_block.start.getTimestamp() : '' }}">
 
         <div class="wt-eyebrow">
-            <span>{{ 'Stempeluhr'|trans }}</span>
-            <span class="wt-eyebrow__date">{{ today|day_name }}, {{ today|date_short }}</span>
+            <strong>{{ today|day_name }}, {{ today|date_short }}</strong>
         </div>
 
-        <section class="wt-hero {{ is_in ? 'wt-hero--in' : 'wt-hero--out' }}">
+        <section class="wt-hero {{ is_in ? 'wt-hero--in' : 'wt-hero--out' }}" aria-live="polite">
             {% if is_in %}
-                <span class="wt-hero__pill"><span class="wt-dot"></span> {{ 'läuft'|trans }}</span>
-                <div class="wt-hero__clock" data-session-timer>0:00:00</div>
-                <div class="wt-hero__sub">{{ 'seit'|trans }} <strong>{{ open_block.start|time }}</strong></div>
-                <form method="post" action="{{ path('worktime_punch') }}">
+                <span class="wt-hero__pill"><span class="wt-dot" aria-hidden="true"></span> Läuft</span>
+                <div class="wt-hero__clock" data-session-timer role="timer" aria-label="Laufende Sitzung">0:00:00</div>
+                <div class="wt-hero__sub">seit <strong>{{ open_block.start|time }}</strong> Uhr</div>
+                <form method="post" action="{{ path('worktime_punch') }}" data-wt-once>
                     <input type="hidden" name="_token" value="{{ csrf_token('worktime.punch') }}">
+                    <input type="hidden" name="expect" value="out">
                     <button type="submit" class="wt-punch wt-punch--out">
-                        <i class="{{ 'stop'|icon }}"></i> {{ 'Ausstempeln'|trans }}
+                        <i class="{{ 'stop'|icon }}" aria-hidden="true"></i> Ausstempeln
                     </button>
                 </form>
             {% else %}
-                <span class="wt-hero__pill">{{ 'Bereit'|trans }}</span>
-                <div class="wt-hero__clock">{{ 'Nicht eingestempelt'|trans }}</div>
-                <div class="wt-hero__sub">{{ 'Stempel dich ein, um deine Arbeitszeit zu erfassen.'|trans }}</div>
-                <form method="post" action="{{ path('worktime_punch') }}">
+                <span class="wt-hero__pill">Bereit</span>
+                <div class="wt-hero__clock">Nicht eingestempelt</div>
+                <div class="wt-hero__sub">Stempel dich ein, um deine Arbeitszeit zu erfassen.</div>
+                <form method="post" action="{{ path('worktime_punch') }}" data-wt-once>
                     <input type="hidden" name="_token" value="{{ csrf_token('worktime.punch') }}">
+                    <input type="hidden" name="expect" value="in">
                     <button type="submit" class="wt-punch wt-punch--in">
-                        <i class="{{ 'start'|icon }}"></i> {{ 'Einstempeln'|trans }}
+                        <i class="{{ 'start'|icon }}" aria-hidden="true"></i> Einstempeln
                     </button>
                 </form>
             {% endif %}
         </section>
 
-        <div class="wt-stats">
-            <div class="wt-stat">
-                <div class="wt-stat__label">{{ 'Heute gesamt'|trans }}</div>
-                <div class="wt-stat__value wt-stat__value--accent" data-today-total>{{ today_seconds|duration }}</div>
+        <div class="wt-kpis" style="margin-top:1rem">
+            <div class="wt-kpi wt-kpi--accent">
+                <div class="wt-kpi__label">Heute gesamt</div>
+                <div class="wt-kpi__value" data-today-total>{{ today_seconds|duration }}</div>
             </div>
-            <div class="wt-stat">
-                <div class="wt-stat__label">{{ 'Pause'|trans }}</div>
-                <div class="wt-stat__value">{{ today_break_seconds|duration }}</div>
+            <div class="wt-kpi">
+                <div class="wt-kpi__label">Pause</div>
+                <div class="wt-kpi__value">{{ today_break_seconds|duration }}</div>
             </div>
-            <div class="wt-stat">
-                <div class="wt-stat__label">{{ 'Sitzungen heute'|trans }}</div>
-                <div class="wt-stat__value">{{ today_blocks|length }}</div>
+            <div class="wt-kpi">
+                <div class="wt-kpi__label">Sitzungen</div>
+                <div class="wt-kpi__value">{{ today_blocks|length }}</div>
             </div>
         </div>
 
+        {% if review_count > 0 %}
+            <div class="wt-note" role="status">
+                <i class="fas fa-triangle-exclamation mt-1" aria-hidden="true"></i>
+                <div>
+                    <strong>{{ review_count == 1 ? 'Ein Eintrag wurde' : review_count ~ ' Einträge wurden' }} automatisch geschlossen – bitte Endzeit prüfen.</strong>
+                    Du hattest vergessen auszustempeln. Öffne den markierten Eintrag und korrigiere die Endzeit.
+                </div>
+            </div>
+        {% endif %}
+
         <div class="wt-sessions">
             <div class="wt-sessions__head">
-                <div class="wt-sessions__title">{{ 'Heutige Stempelzeiten'|trans }}</div>
+                <h2 class="wt-sessions__title m-0">Heutige Stempelzeiten</h2>
                 <button type="button" class="wt-add"
                         data-bs-toggle="modal" data-bs-target="#wtEntryModal"
                         data-mode="create" data-action="{{ path('worktime_entry_create') }}">
-                    <i class="{{ 'create'|icon }}"></i> {{ 'Zeit eintragen'|trans }}
+                    <i class="{{ 'create'|icon }}" aria-hidden="true"></i> Zeit eintragen
                 </button>
             </div>
             {% for block in today_blocks %}
-                <div class="wt-row {{ block.end is null ? 'wt-row--live' : '' }}">
-                    <span class="wt-row__bullet"></span>
+                <div class="wt-row {{ block.end is null ? 'wt-row--live' : (block.needsReview ? 'wt-row--review' : '') }}">
+                    <span class="wt-row__bullet" aria-hidden="true"></span>
                     <span class="wt-row__time">
-                        {{ block.start|time }}
-                        <span class="wt-arrow">→</span>
-                        {% if block.end is null %}
-                            <span class="wt-running">{{ 'läuft'|trans }}</span>
-                        {% else %}
-                            {{ block.end|time }}
-                        {% endif %}
+                        {{ block.start|time }}<span class="wt-arrow" aria-label="bis">→</span>{% if block.end is null %}<span class="wt-running">läuft</span>{% else %}{{ block.end|time }}{% endif %}
+                        {% if block.needsReview %}<span class="wt-flag" title="Automatisch geschlossen – bitte Endzeit prüfen">bitte prüfen</span>{% endif %}
                     </span>
-                    <span class="wt-row__dur">{{ block.durationSeconds is null ? '·' : block.durationSeconds|duration }}</span>
-                    <button type="button" class="wt-edit" title="{{ 'Bearbeiten'|trans }}"
+                    {% if block.end is null %}
+                        <span class="wt-row__dur" data-live-since="{{ block.start.getTimestamp() }}">{{ (server_now - block.start.getTimestamp())|duration }}</span>
+                    {% else %}
+                        <span class="wt-row__dur">{{ block.durationSeconds|duration }}</span>
+                    {% endif %}
+                    <button type="button" class="wt-edit" aria-label="Eintrag {{ block.start|time }} bearbeiten" title="Bearbeiten"
                             data-bs-toggle="modal" data-bs-target="#wtEntryModal"
                             data-mode="edit"
                             data-action="{{ path('worktime_entry_edit', {id: block.id}) }}"
                             data-delete="{{ path('worktime_entry_delete', {id: block.id}) }}"
                             data-start="{{ block.start|date('Y-m-d\\TH:i', app.user.timezone) }}"
                             data-end="{{ block.end is null ? '' : block.end|date('Y-m-d\\TH:i', app.user.timezone) }}">
-                        <i class="{{ 'edit'|icon }}"></i>
+                        <i class="{{ 'edit'|icon }}" aria-hidden="true"></i>
                     </button>
                 </div>
             {% else %}
-                <div class="wt-empty">{{ 'Noch keine Buchung heute.'|trans }}</div>
+                <div class="wt-empty">Noch keine Buchung heute.</div>
             {% endfor %}
         </div>
 
-        {# Reusable create/edit modal #}
-        <div class="modal fade wt-modal" id="wtEntryModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" data-wt-title>{{ 'Zeit eintragen'|trans }}</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'Schließen'|trans }}"></button>
-                    </div>
-                    <form method="post" data-wt-form>
-                        <div class="modal-body">
-                            <input type="hidden" name="_token" value="{{ csrf_token('worktime.entry') }}">
-                            <input type="hidden" name="start" data-wt-start-hidden>
-                            <input type="hidden" name="end" data-wt-end-hidden>
-                            <div class="mb-3">
-                                <label class="wt-field__label" for="wtDate">{{ 'Datum'|trans }}</label>
-                                <input type="date" class="wt-input" id="wtDate" data-wt-date required>
-                            </div>
-                            <div class="wt-times">
-                                <div>
-                                    <label class="wt-field__label" for="wtStartTime">{{ 'Beginn'|trans }}</label>
-                                    <input type="time" class="wt-input" id="wtStartTime" data-wt-start-time required>
-                                </div>
-                                <div>
-                                    <label class="wt-field__label" for="wtEndTime">{{ 'Ende'|trans }}</label>
-                                    <input type="time" class="wt-input" id="wtEndTime" data-wt-end-time>
-                                </div>
-                            </div>
-                            <div class="wt-duration" data-wt-duration hidden>
-                                <span>{{ 'Dauer'|trans }}</span>
-                                <span class="wt-duration__value" data-wt-duration-value>–</span>
-                            </div>
-                        </div>
-                        <div class="modal-footer justify-content-between">
-                            <button type="submit" class="btn" data-wt-delete-btn
-                                    formmethod="post" formaction="" formnovalidate hidden>
-                                <i class="{{ 'delete'|icon }}"></i> {{ 'Löschen'|trans }}
-                            </button>
-                            <span class="d-flex gap-2 ms-auto">
-                                <button type="button" class="btn btn-link" data-bs-dismiss="modal">{{ 'Abbrechen'|trans }}</button>
-                                <button type="submit" class="btn btn-primary">{{ 'Speichern'|trans }}</button>
-                            </span>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
+        {% include '@Worktime/_entry_modal.html.twig' with {token_id: 'worktime.entry'} %}
     </div>
 {% endblock %}
 
@@ -152,120 +120,26 @@
             if (!root) { return; }
             var since = parseInt(root.getAttribute('data-open-since'), 10);
             if (!since) { return; }
-
             var todayBase = parseInt(root.getAttribute('data-today-base'), 10) || 0;
             var serverNow = parseInt(root.getAttribute('data-server-now'), 10) || 0;
-            // correct for client/server clock skew so the live timer matches "seit HH:MM"
+            // Uhrabweichung Client/Server ausgleichen, damit der Timer zu „seit HH:MM“ passt
             var offset = serverNow - Math.floor(Date.now() / 1000);
-
             var timerEl = root.querySelector('[data-session-timer]');
             var totalEl = root.querySelector('[data-today-total]');
+            var liveEls = root.querySelectorAll('[data-live-since]');
 
             function pad(n) { return n < 10 ? '0' + n : '' + n; }
-            function hms(s) {
-                if (s < 0) { s = 0; }
-                var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-                return h + ':' + pad(m) + ':' + pad(sec);
-            }
-            function hm(s) {
-                if (s < 0) { s = 0; }
-                var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
-                return h + ':' + pad(m);
-            }
+            function hms(s) { s = Math.max(0, s); return Math.floor(s / 3600) + ':' + pad(Math.floor((s % 3600) / 60)) + ':' + pad(s % 60); }
+            function hm(s) { s = Math.max(0, s); return Math.floor(s / 3600) + ':' + pad(Math.floor((s % 3600) / 60)); }
 
             function tick() {
                 var now = Math.floor(Date.now() / 1000) + offset;
                 if (timerEl) { timerEl.textContent = hms(now - since); }
                 if (totalEl) { totalEl.textContent = hm(todayBase + (now - serverNow)); }
+                liveEls.forEach(function (el) { el.textContent = hm(now - parseInt(el.getAttribute('data-live-since'), 10)); });
             }
             tick();
             setInterval(tick, 1000);
-        })();
-    </script>
-    <script>
-        (function () {
-            var modal = document.getElementById('wtEntryModal');
-            if (!modal) { return; }
-            var form = modal.querySelector('[data-wt-form]');
-            var title = modal.querySelector('[data-wt-title]');
-            var dateEl = modal.querySelector('[data-wt-date]');
-            var startTimeEl = modal.querySelector('[data-wt-start-time]');
-            var endTimeEl = modal.querySelector('[data-wt-end-time]');
-            var startHidden = modal.querySelector('[data-wt-start-hidden]');
-            var endHidden = modal.querySelector('[data-wt-end-hidden]');
-            var delBtn = modal.querySelector('[data-wt-delete-btn]');
-            var durBox = modal.querySelector('[data-wt-duration]');
-            var durVal = modal.querySelector('[data-wt-duration-value]');
-
-            function pad(n) { return n < 10 ? '0' + n : '' + n; }
-
-            function todayLocal() {
-                var d = new Date();
-                return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
-            }
-            function timeNow() {
-                var d = new Date();
-                return pad(d.getHours()) + ':' + pad(d.getMinutes());
-            }
-            // "2026-06-23T08:15" -> ["2026-06-23", "08:15"]
-            function splitDT(s) {
-                if (!s) { return ['', '']; }
-                var p = s.split('T');
-                return [p[0] || '', (p[1] || '').slice(0, 5)];
-            }
-
-            function updateDuration() {
-                var s = startTimeEl.value, e = endTimeEl.value;
-                if (!s || !e) { durBox.hidden = true; return; }
-                var sm = parseInt(s.slice(0, 2), 10) * 60 + parseInt(s.slice(3, 5), 10);
-                var em = parseInt(e.slice(0, 2), 10) * 60 + parseInt(e.slice(3, 5), 10);
-                var diff = em - sm;
-                durBox.hidden = false;
-                if (diff <= 0) {
-                    durBox.classList.add('wt-duration--invalid');
-                    durVal.textContent = 'Ende muss nach Beginn liegen';
-                } else {
-                    durBox.classList.remove('wt-duration--invalid');
-                    durVal.textContent = Math.floor(diff / 60) + ':' + pad(diff % 60) + ' h';
-                }
-            }
-
-            modal.addEventListener('show.bs.modal', function (event) {
-                var btn = event.relatedTarget;
-                if (!btn) { return; }
-                var mode = btn.getAttribute('data-mode');
-                form.setAttribute('action', btn.getAttribute('data-action') || '');
-
-                if (mode === 'edit') {
-                    title.textContent = 'Eintrag bearbeiten';
-                    var st = splitDT(btn.getAttribute('data-start'));
-                    var en = splitDT(btn.getAttribute('data-end'));
-                    dateEl.value = st[0] || todayLocal();
-                    startTimeEl.value = st[1];
-                    endTimeEl.value = en[1];
-                    delBtn.setAttribute('formaction', btn.getAttribute('data-delete') || '');
-                    delBtn.hidden = false;
-                    endTimeEl.required = false;
-                } else {
-                    title.textContent = 'Zeit eintragen';
-                    dateEl.value = todayLocal();
-                    startTimeEl.value = timeNow();
-                    endTimeEl.value = '';
-                    delBtn.removeAttribute('formaction');
-                    delBtn.hidden = true;
-                    endTimeEl.required = true;
-                }
-                updateDuration();
-            });
-
-            startTimeEl.addEventListener('input', updateDuration);
-            endTimeEl.addEventListener('input', updateDuration);
-
-            form.addEventListener('submit', function () {
-                var d = dateEl.value;
-                startHidden.value = (d && startTimeEl.value) ? (d + 'T' + startTimeEl.value) : '';
-                endHidden.value = (d && endTimeEl.value) ? (d + 'T' + endTimeEl.value) : '';
-            });
         })();
     </script>
 {% endblock %}

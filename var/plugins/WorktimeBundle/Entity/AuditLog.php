@@ -26,8 +26,14 @@ class AuditLog
     public const ACTION_ABSENCE_REQUEST = 'absence_request';
     public const ACTION_ABSENCE_APPROVE = 'absence_approve';
     public const ACTION_ABSENCE_REJECT = 'absence_reject';
+    public const ACTION_ABSENCE_CANCEL_REQUEST = 'absence_cancel_request';
+    public const ACTION_ABSENCE_CANCEL = 'absence_cancel'; // offener Antrag vom Nutzer zurückgezogen
+    public const ACTION_ABSENCE_CANCEL_APPROVE = 'absence_cancel_approve';
+    public const ACTION_ABSENCE_CANCEL_REJECT = 'absence_cancel_reject';
     public const ACTION_BALANCE_CORRECTION = 'balance_correction';
     public const ACTION_BLOCK_AUTO_CLOSE = 'block_auto_close';
+    public const ACTION_FREE_DAY_ADD = 'free_day_add';
+    public const ACTION_FREE_DAY_DELETE = 'free_day_delete';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]

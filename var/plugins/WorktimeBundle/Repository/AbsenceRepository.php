@@ -24,6 +24,15 @@ class AbsenceRepository extends ServiceEntityRepository
     }
 
     /**
+     * DATE-Spalten als 'Y-m-d' binden: ein DateTimeImmutable würde als datetime_immutable
+     * (Kimai: UTCDateTimeImmutableType) nach UTC verschoben und träfe den Vortag.
+     */
+    private static function day(\DateTimeInterface $date): string
+    {
+        return $date->format('Y-m-d');
+    }
+
+    /**
      * @return Absence[]
      */
     public function findForUser(User $user): array
@@ -46,9 +55,6 @@ class AbsenceRepository extends ServiceEntityRepository
      */
     public function findApprovedForUserInYear(User $user, int $year): array
     {
-        $from = new \DateTimeImmutable(\sprintf('%04d-01-01', $year));
-        $to = new \DateTimeImmutable(\sprintf('%04d-12-31', $year));
-
         return $this->createQueryBuilder('a')
             ->andWhere('a.user = :user')
             ->andWhere('a.status = :status')
@@ -56,11 +62,21 @@ class AbsenceRepository extends ServiceEntityRepository
             ->andWhere('a.startDate <= :to')
             ->setParameter('user', $user)
             ->setParameter('status', Absence::STATUS_APPROVED)
-            ->setParameter('from', $from)
-            ->setParameter('to', $to)
+            ->setParameter('from', \sprintf('%04d-01-01', $year))
+            ->setParameter('to', \sprintf('%04d-12-31', $year))
             ->orderBy('a.startDate', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * All approved absences of the user (für die jahresübergreifende Urlaubsrechnung).
+     *
+     * @return Absence[]
+     */
+    public function findApprovedForUser(User $user): array
+    {
+        return $this->findBy(['user' => $user, 'status' => Absence::STATUS_APPROVED], ['startDate' => 'ASC']);
     }
 
     /**
@@ -77,11 +93,75 @@ class AbsenceRepository extends ServiceEntityRepository
             ->andWhere('a.endDate >= :from')
             ->setParameter('user', $user)
             ->setParameter('status', Absence::STATUS_APPROVED)
-            ->setParameter('from', $from)
-            ->setParameter('to', $to)
+            ->setParameter('from', self::day($from))
+            ->setParameter('to', self::day($to))
             ->orderBy('a.startDate', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * Absences of the user whose date range intersects [start, end] (inclusive),
+     * limited to the given statuses, optionally excluding one absence id.
+     *
+     * @param string[] $statuses
+     *
+     * @return Absence[]
+     */
+    public function findOverlappingForUser(User $user, \DateTimeInterface $start, \DateTimeInterface $end, ?int $excludeId, array $statuses): array
+    {
+        $qb = $this->createQueryBuilder('a')
+            ->andWhere('a.user = :user')
+            ->andWhere('a.status IN (:statuses)')
+            ->andWhere('a.startDate <= :end')
+            ->andWhere('a.endDate >= :start')
+            ->setParameter('user', $user)
+            ->setParameter('statuses', $statuses)
+            ->setParameter('start', self::day($start))
+            ->setParameter('end', self::day($end))
+            ->orderBy('a.startDate', 'ASC');
+
+        if (null !== $excludeId) {
+            $qb->andWhere('a.id != :excludeId')->setParameter('excludeId', $excludeId);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * Absences of any user whose date range intersects [start, end] (inclusive),
+     * limited to the given statuses, optionally excluding one absence id.
+     *
+     * @param string[] $statuses
+     *
+     * @return Absence[]
+     */
+    public function findOverlapping(\DateTimeInterface $start, \DateTimeInterface $end, ?int $excludeId, array $statuses): array
+    {
+        $qb = $this->createQueryBuilder('a')
+            ->andWhere('a.status IN (:statuses)')
+            ->andWhere('a.startDate <= :end')
+            ->andWhere('a.endDate >= :start')
+            ->setParameter('statuses', $statuses)
+            ->setParameter('start', self::day($start))
+            ->setParameter('end', self::day($end))
+            ->orderBy('a.startDate', 'ASC');
+
+        if (null !== $excludeId) {
+            $qb->andWhere('a.id != :excludeId')->setParameter('excludeId', $excludeId);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * Absences with a pending cancellation request.
+     *
+     * @return Absence[]
+     */
+    public function findCancellationRequests(): array
+    {
+        return $this->findBy(['cancelRequested' => true], ['startDate' => 'ASC']);
     }
 
     public function save(Absence $absence): void

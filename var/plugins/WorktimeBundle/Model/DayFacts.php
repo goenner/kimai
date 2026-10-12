@@ -16,6 +16,7 @@ final class DayFacts
         public readonly bool $publicHoliday = false,
         public readonly int $absenceCreditSeconds = 0,
         public readonly int $overtimeReductionSeconds = 0,
+        public readonly bool $halfDayOff = false,
     ) {
     }
 }

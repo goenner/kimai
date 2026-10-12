@@ -1,0 +1,113 @@
+{% extends 'base.html.twig' %}
+
+{% block page_title %}{{ 'Feiertage & freie Tage'|trans }}{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {% include '@Worktime/_wt_styles.html.twig' %}
+{% endblock %}
+
+{% block page_content_start %}{% include '@Worktime/_flash.html.twig' %}{% endblock %}
+
+{% block main %}
+    <div class="wt">
+    {% set weekdays = ['', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'] %}
+
+    <form method="get" class="d-flex flex-wrap gap-2 align-items-center mb-3">
+        <a class="wt-nav__btn" href="{{ path('worktime_holidays_admin', {year: year - 1, region: region}) }}" aria-label="{{ 'Vorjahr'|trans }}"><i class="fas fa-chevron-left" aria-hidden="true"></i></a>
+        <select name="year" class="form-select w-auto wt-num" onchange="this.form.submit()" aria-label="{{ 'Jahr'|trans }}">
+            {% for y in (year - 3)..(year + 3) %}<option value="{{ y }}"{% if y == year %} selected{% endif %}>{{ y }}</option>{% endfor %}
+        </select>
+        <a class="wt-nav__btn" href="{{ path('worktime_holidays_admin', {year: year + 1, region: region}) }}" aria-label="{{ 'Folgejahr'|trans }}"><i class="fas fa-chevron-right" aria-hidden="true"></i></a>
+        <select name="region" class="form-select w-auto" onchange="this.form.submit()" aria-label="{{ 'Bundesland'|trans }}">
+            {% for code, label in regions %}<option value="{{ code }}"{% if code == region %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <noscript><button class="btn">{{ 'Anzeigen'|trans }}</button></noscript>
+    </form>
+
+    <div class="row row-cards">
+        <div class="col-lg-5">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">{{ 'Gesetzliche Feiertage'|trans }} {{ year }}</h3>
+                    <div class="card-actions"><span class="badge bg-blue-lt">{{ regions[region] }}</span></div>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for day, name in holidays %}
+                        {% set d = day|date('U') %}
+                        <div class="list-group-item d-flex align-items-center gap-3">
+                            <span class="wt-num fw-normal" style="min-width:5.5rem;color:var(--wt-heading)">{{ weekdays[d|date('N')] }}, {{ d|date('d.m.') }}</span>
+                            <span>{{ name }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+                <div class="card-footer text-muted small">
+                    {{ 'Werden automatisch nach dem Bundesland im Arbeitsvertrag angewendet. Nur regional geltende Tage (z. B. Fronleichnam in Teilen Sachsens) bitte unten als freien Tag eintragen.'|trans }}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="card mb-3">
+                <div class="card-header"><h3 class="card-title">{{ 'Freien Tag eintragen'|trans }}</h3></div>
+                <div class="card-body">
+                    <form method="post" action="{{ path('worktime_holidays_add') }}" class="row g-2 align-items-end" data-wt-once>
+                        <input type="hidden" name="_token" value="{{ csrf_token('worktime.holiday') }}">
+                        <input type="hidden" name="year" value="{{ year }}">
+                        <input type="hidden" name="view_region" value="{{ region }}">
+                        <div class="col-sm-4">
+                            <label class="form-label" for="fd-day">{{ 'Datum'|trans }}</label>
+                            <input id="fd-day" type="date" name="day" class="form-control" required value="{{ year }}-12-24">
+                        </div>
+                        <div class="col-sm-8">
+                            <label class="form-label" for="fd-name">{{ 'Bezeichnung'|trans }}</label>
+                            <input id="fd-name" type="text" name="name" class="form-control" required maxlength="100" placeholder="{{ 'z. B. Heiligabend, Brückentag, Betriebsausflug'|trans }}">
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label" for="fd-region">{{ 'Gilt für'|trans }}</label>
+                            <select id="fd-region" name="region" class="form-select">
+                                <option value="">{{ 'alle Mitarbeitenden'|trans }}</option>
+                                {% for code, label in regions %}<option value="{{ code }}">{{ 'nur'|trans }} {{ label }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-sm-3">
+                            <label class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="half_day" value="1">
+                                <span class="form-check-label">{{ 'halber Tag'|trans }}</span>
+                            </label>
+                        </div>
+                        <div class="col-sm-3 text-end">
+                            <button type="submit" class="btn btn-primary w-100"><i class="fas fa-plus me-1"></i>{{ 'Eintragen'|trans }}</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header"><h3 class="card-title">{{ 'Freie Tage'|trans }} {{ year }}</h3></div>
+                <div class="list-group list-group-flush">
+                    {% for f in free_days %}
+                        <div class="list-group-item d-flex align-items-center gap-3">
+                            <span class="wt-num fw-normal" style="min-width:5.5rem;color:var(--wt-heading)">{{ weekdays[f.day|date('N', false)] }}, {{ f.day|date('d.m.', false) }}</span>
+                            <span class="flex-fill">{{ f.name }}</span>
+                            {% if f.halfDay %}<span class="badge bg-azure-lt">{{ '½ Tag'|trans }}</span>{% endif %}
+                            <span class="badge {{ f.region ? 'bg-blue-lt' : 'bg-secondary-lt' }}">{{ f.region ? regions[f.region] : 'alle'|trans }}</span>
+                            <form method="post" action="{{ path('worktime_holidays_delete', {id: f.id}) }}" data-wt-confirm="{{ 'Freien Tag „%s“ wirklich löschen?'|format(f.name) }}" data-wt-once>
+                                <input type="hidden" name="_token" value="{{ csrf_token('worktime.holiday') }}">
+                                <input type="hidden" name="year" value="{{ year }}">
+                                <input type="hidden" name="view_region" value="{{ region }}">
+                                <button type="submit" class="btn btn-icon btn-ghost-danger" aria-label="{{ f.name }} löschen"><i class="fas fa-trash" aria-hidden="true"></i></button>
+                            </form>
+                        </div>
+                    {% else %}
+                        <div class="list-group-item text-muted">{{ 'Noch keine freien Tage für dieses Jahr eingetragen.'|trans }}</div>
+                    {% endfor %}
+                </div>
+                <div class="card-footer text-muted small">
+                    {{ 'Ganze freie Tage setzen das Soll auf 0 und kosten keinen Urlaub. Halbe Tage halbieren das Soll und kosten höchstens einen halben Urlaubstag.'|trans }}
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+{% endblock %}

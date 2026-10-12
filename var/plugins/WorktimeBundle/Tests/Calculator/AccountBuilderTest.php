@@ -97,4 +97,13 @@ class AccountBuilderTest extends TestCase
         self::assertSame(0, $d->creditSeconds);
         self::assertNull($d->note);
     }
+
+    public function testSeveralAbsencesSameDayTakeHighestCredit(): void
+    {
+        $abs = [$this->vacation('2026-06-01', '2026-06-01', true), $this->vacation('2026-06-01', '2026-06-03', false)];
+        $d = $this->builder()->dayAccount($this->contract(), new \DateTimeImmutable('2026-06-01'), 0, $abs);
+        self::assertSame(self::H8, $d->creditSeconds);
+        self::assertSame(0, $d->balanceSeconds);
+        self::assertSame('Urlaub', $d->note);
+    }
 }

@@ -17,6 +17,8 @@ use KimaiPlugin\WorktimeBundle\Entity\AuditLog;
 use KimaiPlugin\WorktimeBundle\Entity\BalanceCorrection;
 use KimaiPlugin\WorktimeBundle\Repository\BalanceCorrectionRepository;
 use KimaiPlugin\WorktimeBundle\Repository\WorkBlockRepository;
+use KimaiPlugin\WorktimeBundle\Validator\DateInput;
+use Symfony\Component\ExpressionLanguage\Expression;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,10 +30,11 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 final class AccountController extends AbstractController
 {
     private const OVERTIME_WARN_SECONDS = 21600; // 6 h — show a prominent warning at/above this balance
+    private const MAX_CORRECTION_HOURS = 1000;
 
     /**
-     * Resolve the user being viewed: a `user` query param requires worktime_manage;
-     * otherwise the current user.
+     * Resolve the user being viewed: a `user` query param requires worktime_manage
+     * or worktime_view_other (read only); otherwise the current user.
      */
     private function resolveUser(Request $request, UserRepository $users): User
     {
@@ -39,7 +42,7 @@ final class AccountController extends AbstractController
 
         $requested = $request->query->get('user');
         if (null !== $requested && (int) $requested !== $current->getId()) {
-            if (!$this->isGranted('worktime_manage')) {
+            if (!$this->isGranted('worktime_manage') && !$this->isGranted('worktime_view_other')) {
                 throw $this->createAccessDeniedException();
             }
             $user = $users->find((int) $requested);
@@ -58,11 +61,8 @@ final class AccountController extends AbstractController
     {
         $user = $this->resolveUser($request, $users);
         $now = new \DateTimeImmutable('now');
-        $year = (int) $request->query->get('year', $now->format('Y'));
-        $month = (int) $request->query->get('month', $now->format('n'));
-        if ($month < 1 || $month > 12) {
-            $month = (int) $now->format('n');
-        }
+        $year = DateInput::year($request->query->get('year'), (int) $now->format('Y'));
+        $month = DateInput::month($request->query->get('month'), (int) $now->format('n'));
 
         $data = $accounts->monthAccount($user, $year, $month);
         $current = new \DateTimeImmutable(\sprintf('%04d-%02d-01', $year, $month));
@@ -125,7 +125,7 @@ final class AccountController extends AbstractController
     {
         $user = $this->resolveUser($request, $users);
         $now = new \DateTimeImmutable('now');
-        $year = (int) $request->query->get('year', $now->format('Y'));
+        $year = DateInput::year($request->query->get('year'), (int) $now->format('Y'));
         $data = $accounts->yearAccount($user, $year);
 
         return $this->render('@Worktime/account/year.html.twig', [
@@ -137,32 +137,28 @@ final class AccountController extends AbstractController
     }
 
     #[Route(path: '/overview', name: 'worktime_account_overview', methods: ['GET'])]
-    #[IsGranted('worktime_manage')]
+    #[IsGranted(new Expression("is_granted('worktime_manage') or is_granted('worktime_view_other')"))]
     public function overview(Request $request, AccountService $accounts, UserRepository $users): Response
     {
         $now = new \DateTimeImmutable('now');
 
         // Month selection
-        $year = (int) $request->query->get('year', $now->format('Y'));
-        $month = (int) $request->query->get('month', $now->format('n'));
-        if ($month < 1 || $month > 12) {
-            $month = (int) $now->format('n');
-        }
+        $year = DateInput::year($request->query->get('year'), (int) $now->format('Y'));
+        $month = DateInput::month($request->query->get('month'), (int) $now->format('n'));
         $monthLabel = new \DateTimeImmutable(\sprintf('%04d-%02d-01', $year, $month));
 
         // Week selection (reference date -> Monday..Sunday of that week)
         $ref = $request->query->get('week');
-        $refDate = \is_string($ref) ? (\DateTimeImmutable::createFromFormat('Y-m-d', $ref) ?: $now) : $now;
+        $refDate = (\is_string($ref) ? DateInput::parse($ref, $now->getTimezone()) : null) ?? $now;
+        if ((int) $refDate->format('Y') < DateInput::MIN_YEAR || (int) $refDate->format('Y') > DateInput::MAX_YEAR) {
+            $refDate = $now;
+        }
         $weekStart = $refDate->modify('monday this week')->setTime(0, 0);
         $weekEnd = $weekStart->modify('+6 days');
 
         $rows = [];
         foreach ($users->findBy(['enabled' => true], ['username' => 'ASC']) as $user) {
-            $rows[] = [
-                'user' => $user,
-                'week' => $accounts->rangeSummary($user, $weekStart, $weekEnd),
-                'month' => $accounts->monthAccount($user, $year, $month),
-            ];
+            $rows[] = ['user' => $user] + $accounts->overviewRow($user, $weekStart, $weekEnd, $year, $month);
         }
 
         return $this->render('@Worktime/account/overview.html.twig', [
@@ -198,12 +194,18 @@ final class AccountController extends AbstractController
         }
 
         $tz = new \DateTimeZone($admin->getTimezone());
-        $date = \DateTimeImmutable::createFromFormat('Y-m-d', $request->request->getString('date'), $tz);
-        $hours = (float) str_replace(',', '.', $request->request->getString('hours'));
+        $date = DateInput::parse($request->request->getString('date'), $tz);
+        $hoursRaw = str_replace(',', '.', trim($request->request->getString('hours')));
+        $hours = is_numeric($hoursRaw) ? (float) $hoursRaw : 0.0;
         $reason = trim($request->request->getString('reason'));
 
-        if (!$date instanceof \DateTimeImmutable || 0.0 === $hours) {
+        if (null === $date || 0.0 === $hours) {
             $this->addFlash('error', 'Bitte Datum und eine Stundenzahl ungleich 0 angeben.');
+
+            return new RedirectResponse($this->generateUrl('worktime_account', ['user' => $targetUser->getId()]));
+        }
+        if (abs($hours) > self::MAX_CORRECTION_HOURS) {
+            $this->addFlash('error', \sprintf('Eine Korrektur darf höchstens ±%d Stunden betragen.', self::MAX_CORRECTION_HOURS));
 
             return new RedirectResponse($this->generateUrl('worktime_account', ['user' => $targetUser->getId()]));
         }
@@ -221,6 +223,7 @@ final class AccountController extends AbstractController
         $audit->log($admin, $targetUser, AuditLog::ACTION_BALANCE_CORRECTION, 'balance_correction', $correction->getId(), [
             'date' => $date->format('Y-m-d'),
             'seconds' => $seconds,
+            'reason' => '' === $reason ? null : $reason,
         ]);
 
         $this->addFlash('success', 'Korrektur gebucht.');

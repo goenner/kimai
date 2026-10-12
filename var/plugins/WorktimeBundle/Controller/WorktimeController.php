@@ -11,8 +11,8 @@ namespace KimaiPlugin\WorktimeBundle\Controller;
 use App\Controller\AbstractController;
 use App\Entity\User;
 use KimaiPlugin\WorktimeBundle\Calculator\WorkBlockMath;
-use KimaiPlugin\WorktimeBundle\Entity\WorkBlock;
 use KimaiPlugin\WorktimeBundle\Repository\WorkBlockRepository;
+use KimaiPlugin\WorktimeBundle\Service\WorkBlockMutator;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -54,7 +54,7 @@ final class WorktimeController extends AbstractController
 
     #[Route(path: '/punch', name: 'worktime_punch', methods: ['POST'])]
     #[IsGranted('worktime_edit_own')]
-    public function punch(Request $request, WorkBlockRepository $blocks, \KimaiPlugin\WorktimeBundle\Audit\AuditLogger $audit): Response
+    public function punch(Request $request, WorkBlockMutator $mutator): Response
     {
         if (!$this->isCsrfTokenValid('worktime.punch', (string) $request->request->get('_token'))) {
             $this->addFlash('error', 'Ungültiges Token.');
@@ -64,23 +64,9 @@ final class WorktimeController extends AbstractController
 
         /** @var User $user */
         $user = $this->getUser();
-        $now = new \DateTimeImmutable('now');
-        $open = $blocks->findOpenBlock($user);
-
-        if (null !== $open) {
-            $open->setEnd($now);
-            $blocks->save($open);
-            $audit->log($user, $user, \KimaiPlugin\WorktimeBundle\Entity\AuditLog::ACTION_PUNCH_OUT, 'work_block', $open->getId(), ['end' => $now->format('c')]);
-            $this->addFlash('success', 'Ausgestempelt.');
-        } else {
-            $block = new WorkBlock();
-            $block->setUser($user);
-            $block->setStart($now);
-            $block->setSource(WorkBlock::SOURCE_PUNCH);
-            $blocks->save($block);
-            $audit->log($user, $user, \KimaiPlugin\WorktimeBundle\Entity\AuditLog::ACTION_PUNCH_IN, 'work_block', $block->getId(), ['start' => $now->format('c')]);
-            $this->addFlash('success', 'Eingestempelt.');
-        }
+        $expect = $request->request->getString('expect');
+        [$type, $message] = $mutator->punch($user, \in_array($expect, ['in', 'out'], true) ? $expect : null, new \DateTimeImmutable('now'));
+        $this->addFlash($type, $message);
 
         return new RedirectResponse($this->generateUrl('worktime_index'));
     }

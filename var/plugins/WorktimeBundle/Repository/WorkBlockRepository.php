@@ -29,6 +29,14 @@ class WorkBlockRepository extends ServiceEntityRepository
     }
 
     /**
+     * Frühester Beginn eines Blocks des Nutzers (Start des kumulierten Saldos ohne Beschäftigungsbeginn).
+     */
+    public function findFirstStart(User $user): ?\DateTimeImmutable
+    {
+        return $this->findOneBy(['user' => $user], ['start' => 'ASC'])?->getStart();
+    }
+
+    /**
      * @return WorkBlock[]
      */
     public function findForUserBetween(User $user, \DateTimeInterface $from, \DateTimeInterface $to): array

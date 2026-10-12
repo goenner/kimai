@@ -1,101 +1,149 @@
 {% extends 'base.html.twig' %}
 
-{% block page_title %}{{ 'Urlaub'|trans }}{% endblock %}
+{% block page_title %}Urlaub{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {% include '@Worktime/_wt_styles.html.twig' %}
+{% endblock %}
+
+{% block page_content_start %}{% include '@Worktime/_flash.html.twig' %}{% endblock %}
+
+{% macro days(n) %}{{ n|number_format(1, ',', '.')|replace({',0': ''}) }}{% endmacro %}
 
 {% block main %}
-    {% if not has_contract %}
-        <div class="alert alert-warning">{{ 'Für dich ist noch kein Vertrag hinterlegt. Bitte wende dich an die Verwaltung.'|trans }}</div>
-    {% endif %}
+    {% import _self as fmt %}
+    {% set today = 'now'|date('Y-m-d') %}
+    {% set years = available_years|default([year]) %}
+    {# Anträge des gewählten Jahres (Zuordnung nach Startdatum, wie im Backend) #}
+    {% set year_rows = rows|filter(r => (r.absence.startDate|date('Y', false)) == year) %}
+    {% set planned = year_rows|filter(r => r.absence.status == 'approved' and (r.absence.startDate|date('Y-m-d', false)) > today)|reduce((c, r) => c + r.days, 0) %}
+    {% set pending = year_rows|filter(r => r.absence.status == 'open')|reduce((c, r) => c + r.days, 0) %}
+    {% set taken = used - planned %}
 
-    <div class="row row-cards mb-3">
-        <div class="col-sm-4">
-            <div class="card"><div class="card-body">
-                <div class="text-muted small text-uppercase">{{ 'Urlaubsrest'|trans }} {{ year }}</div>
-                <div class="h1 mb-0">{{ remaining|number_format(1, ',', '.') }} {{ 'Tage'|trans }}</div>
-            </div></div>
-        </div>
-        <div class="col-sm-4">
-            <div class="card"><div class="card-body">
-                <div class="text-muted small text-uppercase">{{ 'Anspruch + Übertrag'|trans }}</div>
-                <div class="h2 mb-0">{{ (entitlement + carryover)|number_format(1, ',', '.') }} {{ 'Tage'|trans }}</div>
-            </div></div>
-        </div>
-        <div class="col-sm-4">
-            <div class="card"><div class="card-body">
-                <div class="text-muted small text-uppercase">{{ 'Genommen'|trans }} {{ year }}</div>
-                <div class="h2 mb-0">{{ used|number_format(1, ',', '.') }} {{ 'Tage'|trans }}</div>
-            </div></div>
-        </div>
-    </div>
+    <div class="wt">
+        {% if not has_contract %}
+            <div class="alert alert-warning">Für dich ist noch kein Vertrag hinterlegt. Bitte wende dich an die Verwaltung.</div>
+        {% endif %}
 
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h3 class="card-title">{{ 'Meine Urlaubsanträge'|trans }}</h3>
+        <div class="wt-bar">
+            <form method="get" class="d-flex align-items-center gap-2">
+                <label class="wt-label" for="wtVacYear">Urlaubsjahr</label>
+                <select id="wtVacYear" name="year" class="form-select w-auto wt-num" onchange="this.form.submit()">
+                    {% for y in years %}<option value="{{ y }}"{% if y == year %} selected{% endif %}>{{ y }}</option>{% endfor %}
+                </select>
+                <noscript><button class="btn">Anzeigen</button></noscript>
+            </form>
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#wtVacationModal">
-                <i class="{{ 'create'|icon }}"></i> {{ 'Urlaub beantragen'|trans }}
+                <i class="{{ 'create'|icon }} me-1" aria-hidden="true"></i> Urlaub beantragen
             </button>
         </div>
-        <div class="table-responsive">
-            <table class="table table-vcenter card-table">
-                <thead><tr>
-                    <th>{{ 'Von'|trans }}</th><th>{{ 'Bis'|trans }}</th><th>{{ 'Tage'|trans }}</th><th>{{ 'Status'|trans }}</th><th>{{ 'Notiz'|trans }}</th>
-                </tr></thead>
-                <tbody>
-                {% for row in rows %}
-                    {% set a = row.absence %}
-                    <tr>
-                        <td>{{ a.startDate|date_short }}</td>
-                        <td>{{ a.endDate|date_short }}{% if a.halfDay %} <span class="badge bg-azure-lt">{{ 'halber Tag'|trans }}</span>{% endif %}</td>
-                        <td>{{ row.days|number_format(1, ',', '.') }}</td>
-                        <td>
-                            {% if a.status == 'approved' %}<span class="badge bg-green text-green-fg">{{ 'genehmigt'|trans }}</span>
-                            {% elseif a.status == 'rejected' %}<span class="badge bg-red text-red-fg">{{ 'abgelehnt'|trans }}</span>
-                            {% else %}<span class="badge bg-yellow text-yellow-fg">{{ 'offen'|trans }}</span>{% endif %}
-                        </td>
-                        <td class="text-muted">{{ a.note }}</td>
-                    </tr>
-                {% else %}
-                    <tr><td colspan="5" class="text-muted">{{ 'Noch keine Anträge.'|trans }}</td></tr>
-                {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
 
-    <div class="modal fade" id="wtVacationModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <form method="post" action="{{ path('worktime_vacation_request') }}">
-                    <div class="modal-header">
-                        <h5 class="modal-title">{{ 'Urlaub beantragen'|trans }}</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'Schließen'|trans }}"></button>
-                    </div>
-                    <div class="modal-body">
-                        <input type="hidden" name="_token" value="{{ csrf_token('worktime.vacation') }}">
-                        <div class="row">
-                            <div class="col mb-3">
-                                <label class="form-label" for="wtVacStart">{{ 'Von'|trans }}</label>
-                                <input type="date" class="form-control" id="wtVacStart" name="start" required data-wt-vac-start>
+        <div class="wt-kpis" style="--wt-cols:3">
+            <div class="wt-kpi wt-kpi--lead wt-kpi--accent">
+                <div class="wt-kpi__label">Rest {{ year }}</div>
+                <div class="wt-kpi__value {{ remaining < 0 ? 'wt-neg' }}">{{ fmt.days(remaining) }}<small>Tage</small></div>
+            </div>
+            <div class="wt-kpi">
+                <div class="wt-kpi__label" title="anteilig bei Ein- oder Austritt im Jahr">Anspruch (anteilig)</div>
+                <div class="wt-kpi__value">{{ fmt.days(entitlement) }}<small>Tage</small></div>
+            </div>
+            <div class="wt-kpi">
+                <div class="wt-kpi__label">Übertrag aus {{ year - 1 }}</div>
+                <div class="wt-kpi__value">{{ fmt.days(carryover) }}<small>Tage</small></div>
+            </div>
+            <div class="wt-kpi">
+                <div class="wt-kpi__label">Genommen</div>
+                <div class="wt-kpi__value">{{ fmt.days(taken) }}<small>Tage</small></div>
+            </div>
+            <div class="wt-kpi">
+                <div class="wt-kpi__label" title="genehmigt, liegt in der Zukunft">Geplant</div>
+                <div class="wt-kpi__value">{{ fmt.days(planned) }}<small>Tage</small></div>
+            </div>
+            <div class="wt-kpi">
+                <div class="wt-kpi__label" title="noch nicht entschieden">Beantragt</div>
+                <div class="wt-kpi__value">{{ fmt.days(pending) }}<small>Tage</small></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Meine Anträge {{ year }}</h3>
+            </div>
+            <ul class="wt-items">
+                {% for row in year_rows %}
+                    {% set a = row.absence %}
+                    {% set is_future = (a.startDate|date('Y-m-d', false)) > today %}
+                    {% set can_withdraw = a.status == 'open' %}
+                    {% set can_storno = is_future and a.status == 'approved' and not a.cancelRequested %}
+                    <li class="wt-item">
+                        <div>
+                            <div class="wt-item__title">
+                                {{ a.startDate|date('d.m.Y', false) }}{% if (a.endDate|date('Y-m-d', false)) != (a.startDate|date('Y-m-d', false)) %} – {{ a.endDate|date('d.m.Y', false) }}{% endif %}
                             </div>
-                            <div class="col mb-3">
-                                <label class="form-label" for="wtVacEnd">{{ 'Bis'|trans }}</label>
-                                <input type="date" class="form-control" id="wtVacEnd" name="end" required data-wt-vac-end>
+                            <div class="wt-item__meta">
+                                <span class="wt-num fw-normal">{{ fmt.days(row.days) }} {{ row.days == 1 ? 'Tag' : 'Tage' }}</span>
+                                {% if a.halfDay %}<span class="badge bg-azure-lt">halber Tag</span>{% endif %}
+                                {% if a.status == 'approved' %}<span class="badge bg-green-lt">{{ is_future ? 'genehmigt · geplant' : 'genehmigt' }}</span>
+                                {% elseif a.status == 'rejected' %}<span class="badge bg-red-lt">abgelehnt</span>
+                                {% elseif a.status == 'cancelled' %}<span class="badge bg-secondary-lt">storniert</span>
+                                {% else %}<span class="badge bg-yellow-lt">offen – wartet auf Entscheidung</span>{% endif %}
+                                {% if a.cancelRequested %}<span class="badge bg-orange-lt">Stornierung beantragt</span>{% endif %}
+                            </div>
+                            {% if a.note %}<p class="wt-item__quote">{{ a.note }}</p>{% endif %}
+                        </div>
+                        {% if can_withdraw or can_storno %}
+                            <div class="wt-item__actions">
+                                <form method="post" action="{{ path('worktime_vacation_cancel', {id: a.id}) }}" data-wt-once
+                                      data-wt-confirm="{{ can_withdraw ? 'Antrag wirklich zurückziehen?' : 'Stornierung dieses genehmigten Urlaubs beantragen?' }}">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('worktime.vacation') }}">
+                                    <button type="submit" class="btn btn-outline-danger">{{ can_withdraw ? 'Zurückziehen' : 'Stornierung beantragen' }}</button>
+                                </form>
+                            </div>
+                        {% endif %}
+                    </li>
+                {% else %}
+                    <li class="wt-item wt-muted">Für {{ year }} gibt es noch keine Anträge. Über „Urlaub beantragen“ legst du den ersten an.</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="modal fade wt-modal" id="wtVacationModal" tabindex="-1" aria-hidden="true" aria-labelledby="wtVacTitle">
+            <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+                <div class="modal-content">
+                    <form method="post" action="{{ path('worktime_vacation_request') }}" data-wt-once>
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="wtVacTitle">Urlaub beantragen</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="hidden" name="_token" value="{{ csrf_token('worktime.vacation') }}">
+                            <div class="wt-times mb-2">
+                                <div>
+                                    <label class="wt-field__label" for="wtVacStart">Von</label>
+                                    <input type="date" class="wt-input" id="wtVacStart" name="start" required data-wt-vac-start>
+                                </div>
+                                <div>
+                                    <label class="wt-field__label" for="wtVacEnd">Bis</label>
+                                    <input type="date" class="wt-input" id="wtVacEnd" name="end" required data-wt-vac-end>
+                                </div>
+                            </div>
+                            <label class="form-check">
+                                <input type="checkbox" class="form-check-input" name="half_day" value="1" data-wt-vac-half>
+                                <span class="form-check-label">Halber Tag <span class="wt-muted">(Bis wird auf Von gesetzt)</span></span>
+                            </label>
+                            <div class="mt-2">
+                                <label class="wt-field__label" for="wtVacNote">Notiz <span class="fw-normal">(optional)</span></label>
+                                <textarea class="form-control" id="wtVacNote" name="note" maxlength="500" rows="2" aria-describedby="wtVacNoteCount"></textarea>
+                                <div class="wt-muted small text-end" id="wtVacNoteCount" data-wt-vac-count>0 / 500</div>
                             </div>
                         </div>
-                        <label class="form-check">
-                            <input type="checkbox" class="form-check-input" name="half_day" value="1" data-wt-vac-half>
-                            <span class="form-check-label">{{ 'Halber Tag (nur bei einem einzelnen Tag)'|trans }}</span>
-                        </label>
-                        <div class="mt-3">
-                            <label class="form-label" for="wtVacNote">{{ 'Notiz (optional)'|trans }}</label>
-                            <input type="text" class="form-control" id="wtVacNote" name="note" maxlength="500">
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-link" data-bs-dismiss="modal">Abbrechen</button>
+                            <button type="submit" class="btn btn-primary">Antrag senden</button>
                         </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-link" data-bs-dismiss="modal">{{ 'Abbrechen'|trans }}</button>
-                        <button type="submit" class="btn btn-primary">{{ 'Antrag senden'|trans }}</button>
-                    </div>
-                </form>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -110,18 +158,23 @@
             var startEl = modal.querySelector('[data-wt-vac-start]');
             var endEl = modal.querySelector('[data-wt-vac-end]');
             var halfEl = modal.querySelector('[data-wt-vac-half]');
-            // keep end >= start, and disable half-day unless it is a single day
+            var note = modal.querySelector('#wtVacNote'), count = modal.querySelector('[data-wt-vac-count]');
+            // Bis >= Von erzwingen (min mitführen); halber Tag = genau ein Tag
             function sync() {
-                if (startEl.value && (!endEl.value || endEl.value < startEl.value)) {
-                    endEl.value = startEl.value;
-                }
-                var single = startEl.value && endEl.value && startEl.value === endEl.value;
-                halfEl.disabled = !single;
-                if (!single) { halfEl.checked = false; }
+                endEl.min = startEl.value || '';
+                if (startEl.value && (halfEl.checked || !endEl.value || endEl.value < startEl.value)) { endEl.value = startEl.value; }
+                endEl.readOnly = halfEl.checked;
             }
             startEl.addEventListener('input', sync);
             endEl.addEventListener('input', sync);
-            modal.addEventListener('show.bs.modal', sync);
+            halfEl.addEventListener('change', sync);
+            modal.addEventListener('show.bs.modal', function () {
+                modal.querySelectorAll('button[type=submit]').forEach(function (b) { b.disabled = false; });
+                startEl.form.reset();
+                count.textContent = '0 / 500';
+                sync();
+            });
+            note.addEventListener('input', function () { count.textContent = note.value.length + ' / 500'; });
         })();
     </script>
 {% endblock %}

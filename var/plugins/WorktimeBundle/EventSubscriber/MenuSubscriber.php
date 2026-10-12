@@ -52,13 +52,13 @@ final class MenuSubscriber implements EventSubscriberInterface
                 $contract->addChild(
                     new MenuItemModel('worktime_overview', 'Team-Übersicht', 'worktime_account_overview', [], 'fas fa-users')
                 );
+                $contract->addChild(
+                    new MenuItemModel('worktime_absences_admin', 'Urlaubsanträge', 'worktime_absences_admin', [], 'fas fa-clipboard-check')
+                );
+                $contract->addChild(
+                    new MenuItemModel('worktime_holidays_admin', 'Feiertage & freie Tage', 'worktime_holidays_admin', [], 'fas fa-calendar-day')
+                );
             }
-        }
-
-        if ($this->security->isGranted('worktime_manage')) {
-            $event->getSystemMenu()->addChild(
-                new MenuItemModel('worktime_absences_admin', 'Urlaubsanträge', 'worktime_absences_admin', [], 'fas fa-clipboard-check')
-            );
         }
     }
 }

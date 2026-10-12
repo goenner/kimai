@@ -35,11 +35,11 @@ class AutoCloseTimeTest extends TestCase
         self::assertSame('2026-06-01 16:30', $end->format('Y-m-d H:i'));
     }
 
-    public function testStartAfterCutoffReturnsStart(): void
+    public function testStartAfterCutoffReturnsStartPlusOneHour(): void
     {
         $start = $this->berlin('2026-06-01 19:00');
         $end = $this->calc()->endFor($start, new \DateTimeZone('Europe/Berlin'), null);
-        self::assertSame($start->getTimestamp(), $end->getTimestamp());
+        self::assertSame($start->getTimestamp() + 3600, $end->getTimestamp());
     }
 
     public function testInvalidDailyEndTimeFallsBackToFivePm(): void

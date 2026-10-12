@@ -1,3 +1,14 @@
 worktime:
     resource: '../../Controller'
     type: attribute
+    prefix: /{_locale}
+    requirements:
+        _locale: '%app_locales%'
+    defaults:
+        _locale: '%locale%'
+
+# Alte Lesezeichen/Startbildschirm-Links ohne Sprachpräfix weiterleiten
+worktime_legacy_index:
+    path: /worktime
+    controller: Symfony\Bundle\FrameworkBundle\Controller\RedirectController
+    defaults: { route: worktime_index, permanent: true, _locale: de }

@@ -36,7 +36,7 @@ final class ContractTabSubscriber extends AbstractActionsSubscriber
 
         $event->addAction('worktime_contract', [
             'url' => $this->path('worktime_user_contract', ['username' => $user->getUserIdentifier()]),
-            'title' => 'Arbeitszeit-Vertrag',
+            'title' => 'Arbeitsvertrag',
         ]);
     }
 }

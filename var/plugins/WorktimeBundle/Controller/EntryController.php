@@ -12,6 +12,7 @@ use App\Controller\AbstractController;
 use App\Entity\User;
 use KimaiPlugin\WorktimeBundle\Repository\WorkBlockRepository;
 use KimaiPlugin\WorktimeBundle\Service\WorkBlockMutator;
+use KimaiPlugin\WorktimeBundle\Validator\DateInput;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -29,18 +30,7 @@ final class EntryController extends AbstractController
 
     private function parse(string $raw, \DateTimeZone $tz): ?\DateTimeImmutable
     {
-        $raw = trim($raw);
-        if ('' === $raw) {
-            return null;
-        }
-        foreach (['Y-m-d\TH:i:s', 'Y-m-d\TH:i'] as $fmt) {
-            $dt = \DateTimeImmutable::createFromFormat($fmt, $raw, $tz);
-            if ($dt instanceof \DateTimeImmutable) {
-                return $dt;
-            }
-        }
-
-        return null;
+        return DateInput::parse($raw, $tz, ['Y-m-d\TH:i:s', 'Y-m-d\TH:i']);
     }
 
     #[Route(path: '', name: 'worktime_entry_create', methods: ['POST'])]
@@ -65,7 +55,7 @@ final class EntryController extends AbstractController
         }
 
         $error = $mutator->create($user, $user, $start, $end);
-        $this->addFlash($error ?? 'success', $error ?? 'Eintrag gespeichert.');
+        $this->addFlash(null === $error ? 'success' : 'error', $error ?? 'Eintrag gespeichert.');
 
         return $this->redirectIndex();
     }
@@ -96,7 +86,7 @@ final class EntryController extends AbstractController
         }
 
         $error = $mutator->update($user, $block, $start, $end);
-        $this->addFlash($error ?? 'success', $error ?? 'Eintrag aktualisiert.');
+        $this->addFlash(null === $error ? 'success' : 'error', $error ?? 'Eintrag aktualisiert.');
 
         return $this->redirectIndex();
     }

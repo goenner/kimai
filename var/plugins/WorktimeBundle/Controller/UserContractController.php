@@ -11,6 +11,7 @@ namespace KimaiPlugin\WorktimeBundle\Controller;
 use App\Controller\AbstractController;
 use App\Entity\User;
 use App\Utils\PageSetup;
+use KimaiPlugin\WorktimeBundle\Calculator\HolidayCalendar;
 use KimaiPlugin\WorktimeBundle\Entity\Contract;
 use KimaiPlugin\WorktimeBundle\Form\ContractType;
 use KimaiPlugin\WorktimeBundle\Repository\ContractRepository;
@@ -38,6 +39,8 @@ final class UserContractController extends AbstractController
             $contract = new Contract();
             $contract->setUser($profile);
         }
+        // Altbestand: Freitext „NRW" auf den Bundesland-Code abbilden, damit die Auswahl vorbelegt ist
+        $contract->setHolidayRegion(HolidayCalendar::normalizeRegion($contract->getHolidayRegion()));
 
         $form = $this->createForm(ContractType::class, $contract, [
             'action' => $this->generateUrl('worktime_user_contract', ['username' => $profile->getUserIdentifier()]),
@@ -47,8 +50,9 @@ final class UserContractController extends AbstractController
         // Prefill hour fields (seconds -> hours) on GET
         if (!$request->isMethod('POST')) {
             foreach (self::WEEKDAYS as $iso => $name) {
-                $form->get('workHours'.$name)->setData((int) round($contract->getWorkHoursForWeekday($iso) / 3600));
+                $form->get('workHours'.$name)->setData(round($contract->getWorkHoursForWeekday($iso) / 3600, 2));
             }
+            $form->get('initialOvertimeHours')->setData(round($contract->getInitialOvertimeSeconds() / 3600, 2));
         }
 
         $form->handleRequest($request);
@@ -56,9 +60,11 @@ final class UserContractController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             foreach (self::WEEKDAYS as $iso => $name) {
                 $raw = $form->get('workHours'.$name)->getData();
-                $hours = \is_int($raw) ? $raw : 0;
-                $contract->setWorkHoursForWeekday($iso, $hours * 3600);
+                $hours = is_numeric($raw) ? (float) $raw : 0.0;
+                $contract->setWorkHoursForWeekday($iso, (int) round($hours * 3600));
             }
+            $initial = $form->get('initialOvertimeHours')->getData();
+            $contract->setInitialOvertimeSeconds(is_numeric($initial) ? (int) round((float) $initial * 3600) : 0);
             $contracts->save($contract);
             $this->addFlash('success', 'Vertrag gespeichert.');
 

@@ -1,0 +1,25 @@
+{# Ersetzt Kimais page_content_start (base.html.twig): gleiche Logik, aber success wird als Toast gezeigt.
+   Meldungen werden HTML-maskiert, weil KimaiAlert sie per innerHTML einsetzt (Nutzereingaben wie Namen freier Tage).
+   Konsumiert app.flashes – deshalb KEIN parent() im aufrufenden Block, sonst doppelte Meldungen. #}
+{% set flashes = app.flashes %}
+{% if flashes|length > 0 %}
+    {% set domain = 'flashmessages' %}
+    <script type="text/javascript">
+        document.addEventListener('kimai.initialized', function(options) {
+            const ALERT = options.detail.kimai.getPlugin('alert');
+            {% for type, messages in flashes %}
+                {% for message in messages %}
+                    {% if type == 'error' %}
+                        ALERT.error('{{ message|trans({}, domain)|e('html')|e('js') }}');
+                    {% elseif type == 'warning' %}
+                        ALERT.warning('{{ message|trans({}, domain)|e('html')|e('js') }}');
+                    {% elseif type == 'success' %}
+                        ALERT.success('{{ message|trans({}, domain)|e('html')|e('js') }}');
+                    {% else %}
+                        ALERT.info('{{ message|trans({}, domain)|e('html')|e('js') }}');
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+        });
+    </script>
+{% endif %}

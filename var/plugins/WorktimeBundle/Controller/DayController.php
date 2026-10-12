@@ -12,8 +12,10 @@ use App\Controller\AbstractController;
 use App\Entity\User;
 use App\Repository\UserRepository;
 use KimaiPlugin\WorktimeBundle\Account\AccountService;
+use KimaiPlugin\WorktimeBundle\Calculator\WorkBlockMath;
 use KimaiPlugin\WorktimeBundle\Repository\WorkBlockRepository;
 use KimaiPlugin\WorktimeBundle\Service\WorkBlockMutator;
+use KimaiPlugin\WorktimeBundle\Validator\DateInput;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -26,7 +28,7 @@ final class DayController extends AbstractController
 {
     /**
      * Resolve whose day is viewed/edited: own always allowed; a foreign user
-     * requires worktime_manage.
+     * requires worktime_manage or worktime_view_other (Schreiben prüft assertCanEdit()).
      */
     private function resolveUser(?int $requestedId, UserRepository $users): User
     {
@@ -35,7 +37,7 @@ final class DayController extends AbstractController
         if (null === $requestedId || $requestedId === $current->getId()) {
             return $current;
         }
-        if (!$this->isGranted('worktime_manage')) {
+        if (!$this->isGranted('worktime_manage') && !$this->isGranted('worktime_view_other')) {
             throw $this->createAccessDeniedException();
         }
         $user = $users->find($requestedId);
@@ -64,18 +66,7 @@ final class DayController extends AbstractController
 
     private function parse(string $raw, \DateTimeZone $tz): ?\DateTimeImmutable
     {
-        $raw = trim($raw);
-        if ('' === $raw) {
-            return null;
-        }
-        foreach (['Y-m-d\TH:i:s', 'Y-m-d\TH:i'] as $fmt) {
-            $dt = \DateTimeImmutable::createFromFormat($fmt, $raw, $tz);
-            if ($dt instanceof \DateTimeImmutable) {
-                return $dt;
-            }
-        }
-
-        return null;
+        return DateInput::parse($raw, $tz, ['Y-m-d\TH:i:s', 'Y-m-d\TH:i']);
     }
 
     private function redirectDay(User $user, \DateTimeImmutable $date): RedirectResponse
@@ -87,14 +78,17 @@ final class DayController extends AbstractController
     }
 
     #[Route(path: '', name: 'worktime_account_day', methods: ['GET'])]
-    public function day(Request $request, AccountService $accounts, WorkBlockRepository $blocks, UserRepository $users): Response
+    public function day(Request $request, AccountService $accounts, WorkBlockRepository $blocks, UserRepository $users, WorkBlockMath $math): Response
     {
         $requested = $request->query->get('user');
         $user = $this->resolveUser(null !== $requested ? (int) $requested : null, $users);
 
         $tz = new \DateTimeZone($user->getTimezone());
         $dateRaw = (string) $request->query->get('date', '');
-        $date = \DateTimeImmutable::createFromFormat('Y-m-d', $dateRaw, $tz) ?: new \DateTimeImmutable('now', $tz);
+        $date = DateInput::parse($dateRaw, $tz) ?? new \DateTimeImmutable('now', $tz);
+        if ((int) $date->format('Y') < DateInput::MIN_YEAR || (int) $date->format('Y') > DateInput::MAX_YEAR) {
+            $date = new \DateTimeImmutable('now', $tz);
+        }
         $dayStart = $date->setTime(0, 0);
         $dayEnd = $dayStart->modify('+1 day');
 
@@ -103,10 +97,8 @@ final class DayController extends AbstractController
 
         // Actual worked seconds from the blocks themselves, so "Ist" is correct
         // even when the user has no contract (summary would be zeroed then).
-        $dayWorked = 0;
-        foreach ($dayBlocks as $b) {
-            $dayWorked += $b->getDurationSeconds() ?? 0;
-        }
+        // Blöcke über Mitternacht zählen nur mit ihrem Anteil an diesem Tag.
+        $dayWorked = $math->secondsPerLocalDay($blocks->findOverlapping($user, $dayStart, $dayEnd, null), $tz)[$dayStart->format('Y-m-d')] ?? 0;
 
         /** @var User $current */
         $current = $this->getUser();
@@ -155,7 +147,7 @@ final class DayController extends AbstractController
         }
 
         $error = $mutator->create($actor, $target, $start, $end);
-        $this->addFlash($error ?? 'success', $error ?? 'Eintrag gespeichert.');
+        $this->addFlash(null === $error ? 'success' : 'error', $error ?? 'Eintrag gespeichert.');
 
         return $this->redirectDay($target, $start);
     }
@@ -188,7 +180,7 @@ final class DayController extends AbstractController
         }
 
         $error = $mutator->update($actor, $block, $start, $end);
-        $this->addFlash($error ?? 'success', $error ?? 'Eintrag aktualisiert.');
+        $this->addFlash(null === $error ? 'success' : 'error', $error ?? 'Eintrag aktualisiert.');
 
         return $this->redirectDay($target, $start);
     }

@@ -44,4 +44,20 @@ class WorkBlockValidatorTest extends TestCase
         $end = new \DateTimeImmutable('2026-06-01 08:00:00');
         self::assertIsString($this->v()->validateInterval($start, $end));
     }
+
+    public function testEndInFutureBeyondToleranceIsInvalid(): void
+    {
+        $now = new \DateTimeImmutable('2026-06-01 12:00:00');
+        $start = new \DateTimeImmutable('2026-06-01 08:00:00');
+        self::assertNull($this->v()->validateInterval($start, $now->modify('+5 minutes'), $now));
+        self::assertIsString($this->v()->validateInterval($start, $now->modify('+6 minutes'), $now));
+    }
+
+    public function testLongerThan24HoursIsInvalid(): void
+    {
+        $now = new \DateTimeImmutable('2026-06-10 00:00:00');
+        $start = new \DateTimeImmutable('2026-06-01 08:00:00');
+        self::assertNull($this->v()->validateInterval($start, $start->modify('+24 hours'), $now));
+        self::assertIsString($this->v()->validateInterval($start, $start->modify('+24 hours +1 second'), $now));
+    }
 }

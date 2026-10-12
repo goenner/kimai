@@ -18,8 +18,8 @@ final class AutoCloseTime
      *
      * The cutoff is the contract daily end time ("HH:MM") if given and valid,
      * otherwise 17:00, anchored to the start's local calendar day in the given
-     * timezone. If the block started at/after that cutoff, the end equals the
-     * start (zero-length) so it can still be flagged for review.
+     * timezone. If the block started at/after that cutoff, the end is start + 1 h
+     * (statt einer Dauer von 0); der Block wird ohnehin zur Prüfung markiert.
      */
     public function endFor(\DateTimeImmutable $start, \DateTimeZone $tz, ?string $dailyEndTime): \DateTimeImmutable
     {
@@ -27,7 +27,7 @@ final class AutoCloseTime
         [$hour, $minute] = $this->parseTime($dailyEndTime);
         $cutoff = $local->setTime($hour, $minute);
 
-        return $cutoff > $local ? $cutoff : $local;
+        return $cutoff > $local ? $cutoff : $local->modify('+1 hour');
     }
 
     /**

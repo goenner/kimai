@@ -109,4 +109,35 @@ class WorkBlockMathTest extends TestCase
         ];
         self::assertSame(0, (new WorkBlockMath())->breakSeconds($blocks));
     }
+
+    public function testSecondsPerLocalDaySplitsAtLocalMidnight(): void
+    {
+        $tz = new \DateTimeZone('Europe/Berlin');
+        // 22:00–02:00 Berlin (CEST) als UTC-Instants
+        $b = new WorkBlock();
+        $b->setUser(new User());
+        $b->setStart(new \DateTimeImmutable('2026-06-01 20:00:00', new \DateTimeZone('UTC')));
+        $b->setEnd(new \DateTimeImmutable('2026-06-02 00:00:00', new \DateTimeZone('UTC')));
+
+        self::assertSame(['2026-06-01' => 7200, '2026-06-02' => 7200], (new WorkBlockMath())->secondsPerLocalDay([$b], $tz));
+    }
+
+    public function testSecondsPerLocalDaySumsAndIgnoresOpenBlocks(): void
+    {
+        $tz = new \DateTimeZone('Europe/Berlin');
+        $blocks = [
+            $this->block('2026-06-01 08:00:00 Europe/Berlin', '2026-06-01 12:00:00 Europe/Berlin'),
+            $this->block('2026-06-01 13:00:00 Europe/Berlin', '2026-06-01 14:00:00 Europe/Berlin'),
+            $this->block('2026-06-02 08:00:00 Europe/Berlin', null),
+        ];
+        self::assertSame(['2026-06-01' => 18000], (new WorkBlockMath())->secondsPerLocalDay($blocks, $tz));
+    }
+
+    public function testSecondsPerLocalDayAcrossDstChangeUsesRealDuration(): void
+    {
+        // Nacht der Zeitumstellung 25.10.2026: 22:00–06:00 lokal = 9 h real
+        $tz = new \DateTimeZone('Europe/Berlin');
+        $b = $this->block('2026-10-24 22:00:00 Europe/Berlin', '2026-10-25 06:00:00 Europe/Berlin');
+        self::assertSame(['2026-10-24' => 7200, '2026-10-25' => 25200], (new WorkBlockMath())->secondsPerLocalDay([$b], $tz));
+    }
 }

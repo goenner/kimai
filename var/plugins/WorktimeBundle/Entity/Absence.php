@@ -24,6 +24,7 @@ class Absence
     public const STATUS_OPEN = 'open';
     public const STATUS_APPROVED = 'approved';
     public const STATUS_REJECTED = 'rejected';
+    public const STATUS_CANCELLED = 'cancelled';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -51,6 +52,9 @@ class Absence
 
     #[ORM\Column(name: 'note', type: Types::TEXT, nullable: true)]
     private ?string $note = null;
+
+    #[ORM\Column(name: 'cancel_requested', type: Types::BOOLEAN)]
+    private bool $cancelRequested = false;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(name: 'decided_by', nullable: true, onDelete: 'SET NULL')]
@@ -140,6 +144,16 @@ class Absence
     public function setNote(?string $note): void
     {
         $this->note = $note;
+    }
+
+    public function isCancelRequested(): bool
+    {
+        return $this->cancelRequested;
+    }
+
+    public function setCancelRequested(bool $cancelRequested): void
+    {
+        $this->cancelRequested = $cancelRequested;
     }
 
     public function getDecidedBy(): ?User

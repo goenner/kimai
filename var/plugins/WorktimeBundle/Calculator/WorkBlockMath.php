@@ -55,4 +55,33 @@ final class WorkBlockMath
 
         return $gap;
     }
+
+    /**
+     * Arbeitszeit der geschlossenen Blöcke je lokalem Kalendertag (Y-m-d), an Mitternacht
+     * in $tz aufgeteilt (ein Block 22:00–02:00 zählt 2 h auf jeden der beiden Tage).
+     * Offene Blöcke zählen nicht.
+     *
+     * @param iterable<WorkBlock> $blocks
+     *
+     * @return array<string, int>
+     */
+    public function secondsPerLocalDay(iterable $blocks, \DateTimeZone $tz): array
+    {
+        $result = [];
+        foreach ($blocks as $block) {
+            $end = $block->getEnd()?->setTimezone($tz);
+            if (null === $end) {
+                continue;
+            }
+            $cursor = $block->getStart()->setTimezone($tz);
+            while ($cursor < $end) {
+                $next = min($end, $cursor->setTime(0, 0)->modify('+1 day'));
+                $key = $cursor->format('Y-m-d');
+                $result[$key] = ($result[$key] ?? 0) + ($next->getTimestamp() - $cursor->getTimestamp());
+                $cursor = $next;
+            }
+        }
+
+        return $result;
+    }
 }

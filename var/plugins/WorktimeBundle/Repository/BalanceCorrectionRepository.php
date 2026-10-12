@@ -34,9 +34,14 @@ class BalanceCorrectionRepository extends ServiceEntityRepository
             ->andWhere('c.date <= :date')
             ->setParameter('user', $user)
             ->setParameter('account', BalanceCorrection::ACCOUNT_OVERTIME)
-            ->setParameter('date', $date)
+            ->setParameter('date', $date->format('Y-m-d'))
             ->getQuery()
             ->getResult();
+    }
+
+    public function findFirstDate(User $user): ?\DateTimeImmutable
+    {
+        return $this->findOneBy(['user' => $user], ['date' => 'ASC'])?->getDate();
     }
 
     /**

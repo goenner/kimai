@@ -1,41 +1,107 @@
 {% extends 'base.html.twig' %}
 
-{% block page_title %}{{ 'Urlaubsanträge'|trans }}{% endblock %}
+{% block page_title %}Urlaubsanträge{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {% include '@Worktime/_wt_styles.html.twig' %}
+{% endblock %}
+
+{% block page_content_start %}{% include '@Worktime/_flash.html.twig' %}{% endblock %}
+
+{% macro status_badge(status) %}{% apply spaceless %}
+    {% if status == 'approved' %}<span class="badge bg-green-lt">genehmigt</span>
+    {% elseif status == 'rejected' %}<span class="badge bg-red-lt">abgelehnt</span>
+    {% elseif status == 'cancelled' %}<span class="badge bg-secondary-lt">storniert</span>
+    {% else %}<span class="badge bg-yellow-lt">offen</span>{% endif %}
+{% endapply %}{% endmacro %}
+{% macro days(n) %}{{ n|number_format(1, ',', '.')|replace({',0': ''}) }}{% endmacro %}
+
+{# Eine Antragskarte; kind = 'request' | 'storno' #}
+{% macro item(row, kind) %}
+    {% import _self as m %}
+    {% set a = row.absence %}
+    {% set who = a.user.displayName %}
+    {% set range = (a.startDate|date('d.m.Y', false)) ~ ((a.endDate|date('Y-m-d', false)) != (a.startDate|date('Y-m-d', false)) ? ' – ' ~ (a.endDate|date('d.m.Y', false)) : '') %}
+    {% set rest = row.remaining_after|default(null) %}
+    <li class="wt-item">
+        <div>
+            <div class="wt-item__title">{{ who }}</div>
+            <div class="wt-item__meta">
+                <span class="wt-num fw-normal" style="color:var(--wt-ink)">{{ range }}</span>
+                <span>{{ m.days(row.days) }} {{ row.days == 1 ? 'Tag' : 'Tage' }}</span>
+                {% if a.halfDay %}<span class="badge bg-azure-lt">halber Tag</span>{% endif %}
+                {% if kind == 'storno' %}{{ m.status_badge(a.status) }}{% endif %}
+                {% if rest is not null %}
+                    <span>Rest danach: <b class="wt-num {{ rest < 0 ? 'wt-neg' : '' }}">{{ m.days(rest) }} Tage</b></span>
+                {% else %}
+                    <span class="badge bg-yellow-lt">kein Vertrag</span>
+                {% endif %}
+            </div>
+            {% if a.note %}<p class="wt-item__quote"><span class="visually-hidden">Notiz von {{ who }}: </span>„{{ a.note }}“</p>{% endif %}
+            <div class="small mt-2">
+                {% if row.conflicts is empty %}
+                    <span class="wt-muted"><i class="fas fa-check me-1" aria-hidden="true"></i>Keine Überschneidungen im Team</span>
+                {% else %}
+                    <span class="wt-muted">Gleichzeitig abwesend:</span>
+                    {% for c in row.conflicts %}
+                        <span class="d-inline-block me-2">{{ c.user.displayName }} ({{ c.startDate|date('d.m.', false) }}–{{ c.endDate|date('d.m.', false) }}) {{ m.status_badge(c.status) }}</span>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+        <div class="wt-item__actions">
+            {% if kind == 'request' %}
+                <form method="post" action="{{ path('worktime_absences_approve', {id: a.id}) }}" data-wt-once data-wt-confirm="Urlaub von {{ who }} ({{ range }}) genehmigen?">
+                    <input type="hidden" name="_token" value="{{ csrf_token('worktime.absence') }}">
+                    <button type="submit" class="btn btn-success"><i class="fas fa-check me-1" aria-hidden="true"></i>Genehmigen</button>
+                </form>
+                <form method="post" action="{{ path('worktime_absences_reject', {id: a.id}) }}" data-wt-once data-wt-confirm="Urlaub von {{ who }} ({{ range }}) ablehnen?">
+                    <input type="hidden" name="_token" value="{{ csrf_token('worktime.absence') }}">
+                    <button type="submit" class="btn btn-outline-danger">Ablehnen</button>
+                </form>
+            {% else %}
+                <form method="post" action="{{ path('worktime_absences_cancel_approve', {id: a.id}) }}" data-wt-once data-wt-confirm="Stornierung für {{ who }} ({{ range }}) genehmigen? Die Tage werden gutgeschrieben.">
+                    <input type="hidden" name="_token" value="{{ csrf_token('worktime.absence') }}">
+                    <button type="submit" class="btn btn-success">Stornierung genehmigen</button>
+                </form>
+                <form method="post" action="{{ path('worktime_absences_cancel_reject', {id: a.id}) }}" data-wt-once data-wt-confirm="Stornierung für {{ who }} ablehnen? Der Urlaub bleibt bestehen.">
+                    <input type="hidden" name="_token" value="{{ csrf_token('worktime.absence') }}">
+                    <button type="submit" class="btn btn-outline-danger">Stornierung ablehnen</button>
+                </form>
+            {% endif %}
+        </div>
+    </li>
+{% endmacro %}
 
 {% block main %}
-    <div class="card">
-        <div class="card-header"><h3 class="card-title">{{ 'Offene Urlaubsanträge'|trans }}</h3></div>
-        <div class="table-responsive">
-            <table class="table table-vcenter card-table">
-                <thead><tr>
-                    <th>{{ 'Mitarbeiter'|trans }}</th><th>{{ 'Von'|trans }}</th><th>{{ 'Bis'|trans }}</th>
-                    <th>{{ 'Tage'|trans }}</th><th>{{ 'Notiz'|trans }}</th><th></th>
-                </tr></thead>
-                <tbody>
+    {% import _self as m %}
+    <div class="wt">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h3 class="card-title">Neue Urlaubsanträge <span class="badge bg-teal-lt ms-1">{{ rows|length }}</span></h3>
+            </div>
+            <ul class="wt-items">
                 {% for row in rows %}
-                    {% set a = row.absence %}
-                    <tr>
-                        <td>{{ a.user.displayName }}</td>
-                        <td>{{ a.startDate|date_short }}</td>
-                        <td>{{ a.endDate|date_short }}{% if a.halfDay %} <span class="badge bg-azure-lt">{{ 'halber Tag'|trans }}</span>{% endif %}</td>
-                        <td>{{ row.days|number_format(1, ',', '.') }}</td>
-                        <td class="text-muted">{{ a.note }}</td>
-                        <td class="text-end">
-                            <form method="post" action="{{ path('worktime_absences_approve', {id: a.id}) }}" class="d-inline">
-                                <input type="hidden" name="_token" value="{{ csrf_token('worktime.absence') }}">
-                                <button type="submit" class="btn btn-sm btn-success">{{ 'Genehmigen'|trans }}</button>
-                            </form>
-                            <form method="post" action="{{ path('worktime_absences_reject', {id: a.id}) }}" class="d-inline">
-                                <input type="hidden" name="_token" value="{{ csrf_token('worktime.absence') }}">
-                                <button type="submit" class="btn btn-sm btn-outline-danger">{{ 'Ablehnen'|trans }}</button>
-                            </form>
-                        </td>
-                    </tr>
+                    {{ m.item(row, 'request') }}
                 {% else %}
-                    <tr><td colspan="6" class="text-muted">{{ 'Keine offenen Anträge.'|trans }}</td></tr>
+                    <li class="wt-item wt-muted">Keine offenen Anträge – alles entschieden.</li>
                 {% endfor %}
-                </tbody>
-            </table>
+            </ul>
+        </div>
+
+        <div class="card">
+            <div class="card-header d-block">
+                <h3 class="card-title">Stornierungs-Anfragen <span class="badge bg-orange-lt ms-1">{{ cancellations|length }}</span></h3>
+                <div class="wt-muted small mt-1">Bereits genehmigter Urlaub, den die Person zurückgeben möchte.</div>
+            </div>
+            <ul class="wt-items">
+                {% for row in cancellations %}
+                    {{ m.item(row, 'storno') }}
+                {% else %}
+                    <li class="wt-item wt-muted">Keine Stornierungs-Anfragen.</li>
+                {% endfor %}
+            </ul>
         </div>
     </div>
 {% endblock %}

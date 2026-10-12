@@ -63,6 +63,10 @@ class Contract
     #[ORM\Column(name: 'employment_end', type: Types::DATE_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $employmentEnd = null;
 
+    /** Stichtag des Zeitkontos: Tage davor zählen nicht in den Saldo (unabhängig vom Beschäftigungsbeginn, der den Urlaubsanspruch bestimmt). */
+    #[ORM\Column(name: 'account_start', type: Types::DATE_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $accountStart = null;
+
     #[ORM\Column(name: 'holiday_region', type: Types::STRING, length: 50)]
     private string $holidayRegion = 'NRW';
 
@@ -168,6 +172,16 @@ class Contract
     public function setEmploymentEnd(?\DateTimeImmutable $employmentEnd): void
     {
         $this->employmentEnd = $employmentEnd;
+    }
+
+    public function getAccountStart(): ?\DateTimeImmutable
+    {
+        return $this->accountStart;
+    }
+
+    public function setAccountStart(?\DateTimeImmutable $accountStart): void
+    {
+        $this->accountStart = $accountStart;
     }
 
     public function getHolidayRegion(): string

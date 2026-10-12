@@ -3,9 +3,17 @@
     "description": "Arbeitszeit- und Abwesenheitserfassung (Punch In/Out, Zeitkonto, Monatsabschluss).",
     "type": "kimai-plugin",
     "version": "0.1.0",
-    "keywords": ["kimai", "kimai-plugin", "Worktime"],
+    "keywords": [
+        "kimai",
+        "kimai-plugin",
+        "Worktime"
+    ],
     "license": "proprietary",
-    "authors": [{ "name": "SICODA" }],
+    "authors": [
+        {
+            "name": "SICODA"
+        }
+    ],
     "extra": {
         "kimai": {
             "require": 20000,
@@ -13,6 +21,11 @@
         }
     },
     "autoload": {
-        "psr-4": { "KimaiPlugin\\WorktimeBundle\\": "" }
+        "psr-4": {
+            "KimaiPlugin\\WorktimeBundle\\": ""
+        }
+    },
+    "require": {
+        "ext-calendar": "*"
     }
 }

@@ -31,7 +31,9 @@ final class WorktimeCalculator
             return 0;
         }
 
-        return $contract->getWorkHoursForDay($day->date);
+        $target = $contract->getWorkHoursForDay($day->date);
+
+        return $day->halfDayOff ? (int) round($target / 2) : $target;
     }
 
     public function creditSeconds(DayFacts $day): int

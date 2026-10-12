@@ -21,29 +21,34 @@ final class AccountBuilder
 
     /**
      * @param Absence[] $approvedAbsences
+     * @param array{name: string, half: bool}|null $dayOff Feiertag oder vom Admin eingetragener freier Tag
      */
-    public function dayAccount(Contract $contract, \DateTimeImmutable $date, int $workedSeconds, array $approvedAbsences): DayAccount
+    public function dayAccount(Contract $contract, \DateTimeImmutable $date, int $workedSeconds, array $approvedAbsences, ?array $dayOff = null): DayAccount
     {
         $day = $date->setTime(0, 0);
-        $target = $this->calculator->targetSeconds($contract, new DayFacts($day));
+        $holiday = null !== $dayOff && !$dayOff['half'];
+        $halfOff = null !== $dayOff && $dayOff['half'];
+        $target = $this->calculator->targetSeconds($contract, new DayFacts($day, 0, $holiday, 0, 0, $halfOff));
 
         $credit = 0;
-        $note = null;
+        $note = null === $dayOff ? null : ($halfOff ? '½ ' : '').$dayOff['name'];
+        $absenceNote = null;
+        // Mehrere Abwesenheiten am selben Tag: die höchste Gutschrift zählt
         foreach ($approvedAbsences as $absence) {
-            if (!$this->covers($absence, $day)) {
+            if ($target <= 0 || !$this->covers($absence, $day)) {
                 continue;
             }
-            if ($absence->isHalfDay()) {
-                $credit = (int) round($target / 2);
-                $note = '½ Urlaub';
-            } else {
-                $credit = $target;
-                $note = 'Urlaub';
+            // Ein halber Urlaubstag an einem halben freien Tag deckt den Rest des Tages ab
+            $half = $absence->isHalfDay() && !$halfOff;
+            $c = $half ? (int) round($target / 2) : $target;
+            if ($c > $credit) {
+                $credit = $c;
+                $absenceNote = $half ? '½ Urlaub' : (null === $note ? 'Urlaub' : $note.' · Urlaub');
             }
-            break;
         }
+        $note = $absenceNote ?? $note;
 
-        $facts = new DayFacts($day, $workedSeconds, false, $credit, 0);
+        $facts = new DayFacts($day, $workedSeconds, $holiday, $credit, 0, $halfOff);
         $balance = $this->calculator->dailyBalanceSeconds($contract, $facts);
 
         return new DayAccount($day, $target, $workedSeconds, $credit, $balance, $note);

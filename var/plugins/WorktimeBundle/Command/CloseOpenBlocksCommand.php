@@ -21,10 +21,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
     name: 'worktime:close-open-blocks',
-    description: 'Auto-close work blocks left open from previous days (forgotten punch-out) at the daily end time (17:00 default).',
+    description: 'Auto-close work blocks open for more than 16 h (forgotten punch-out) at the daily end time (17:00 default), or start + 1 h if they began after it.',
 )]
 final class CloseOpenBlocksCommand extends Command
 {
+    private const MAX_OPEN_HOURS = 16;
+
     public function __construct(
         private readonly WorkBlockRepository $blocks,
         private readonly ContractRepository $contracts,
@@ -40,17 +42,10 @@ final class CloseOpenBlocksCommand extends Command
         $now = new \DateTimeImmutable('now');
 
         $closed = 0;
-        foreach ($this->blocks->findOpenStartedBefore($now) as $block) {
+        // Nur Blöcke, die seit mehr als 16 h laufen: eine Spätschicht über Mitternacht ist legitim
+        foreach ($this->blocks->findOpenStartedBefore($now->modify(\sprintf('-%d hours', self::MAX_OPEN_HOURS))) as $block) {
             $user = $block->getUser();
             $tz = new \DateTimeZone($user->getTimezone());
-
-            // Only previous days: a block started on the user's local "today" is
-            // a legitimately running session and must not be auto-closed.
-            $startLocalDay = $block->getStart()->setTimezone($tz)->format('Y-m-d');
-            $todayLocalDay = $now->setTimezone($tz)->format('Y-m-d');
-            if ($startLocalDay >= $todayLocalDay) {
-                continue;
-            }
 
             $contract = $this->contracts->findForUser($user);
             $end = $this->autoClose->endFor($block->getStart(), $tz, $contract?->getDailyEndTime());

@@ -1,0 +1,122 @@
+{# Gemeinsamer Dialog „Zeit eintragen / Eintrag bearbeiten“ für Stempeluhr und Tagesansicht.
+   Parameter: token_id (CSRF-ID), user_id (optional, Tagesansicht), default_date (Y-m-d, leer = heute). #}
+<div class="modal fade wt-modal" id="wtEntryModal" tabindex="-1" aria-hidden="true" aria-labelledby="wtEntryTitle"
+     data-default-date="{{ default_date|default('') }}">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title" id="wtEntryTitle" data-wt-title>Zeit eintragen</h5>
+                    {% if who is defined and who %}<div class="wt-muted small">für <strong>{{ who }}</strong></div>{% endif %}
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+            </div>
+            <form method="post" data-wt-form data-wt-once>
+                <div class="modal-body">
+                    <input type="hidden" name="_token" value="{{ csrf_token(token_id) }}">
+                    {% if user_id is defined and user_id %}<input type="hidden" name="user" value="{{ user_id }}">{% endif %}
+                    <input type="hidden" name="start" data-wt-start-hidden>
+                    <input type="hidden" name="end" data-wt-end-hidden>
+                    <div class="mb-3">
+                        <label class="wt-field__label" for="wtDate">Datum</label>
+                        <input type="date" class="wt-input" id="wtDate" data-wt-date required>
+                    </div>
+                    <div class="wt-times">
+                        <div>
+                            <label class="wt-field__label" for="wtStartTime">Beginn</label>
+                            <input type="time" class="wt-input" id="wtStartTime" data-wt-start-time required>
+                        </div>
+                        <div>
+                            <label class="wt-field__label" for="wtEndTime">Ende</label>
+                            <input type="time" class="wt-input" id="wtEndTime" data-wt-end-time>
+                        </div>
+                    </div>
+                    <div class="wt-duration" data-wt-duration hidden aria-live="polite">
+                        <span>Dauer</span>
+                        <span class="wt-duration__value" data-wt-duration-value>–</span>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button type="submit" class="btn btn-ghost-danger" data-wt-delete-btn
+                            formmethod="post" formaction="" formnovalidate hidden
+                            data-wt-confirm="Diesen Eintrag wirklich löschen?">
+                        <i class="fas fa-trash me-1"></i> Löschen
+                    </button>
+                    <span class="d-flex gap-2 ms-auto">
+                        <button type="button" class="btn btn-link" data-bs-dismiss="modal">Abbrechen</button>
+                        <button type="submit" class="btn btn-primary">Speichern</button>
+                    </span>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+    (function () {
+        var modal = document.getElementById('wtEntryModal');
+        if (!modal) { return; }
+        var q = function (s) { return modal.querySelector(s); };
+        var form = q('[data-wt-form]'), title = q('[data-wt-title]'), dateEl = q('[data-wt-date]');
+        var startTimeEl = q('[data-wt-start-time]'), endTimeEl = q('[data-wt-end-time]');
+        var startHidden = q('[data-wt-start-hidden]'), endHidden = q('[data-wt-end-hidden]');
+        var delBtn = q('[data-wt-delete-btn]'), durBox = q('[data-wt-duration]'), durVal = q('[data-wt-duration-value]');
+
+        function pad(n) { return n < 10 ? '0' + n : '' + n; }
+        function todayLocal() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+        function timeNow() { var d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+        // "2026-06-23T08:15" -> ["2026-06-23", "08:15"]
+        function splitDT(s) { if (!s) { return ['', '']; } var p = s.split('T'); return [p[0] || '', (p[1] || '').slice(0, 5)]; }
+        function defaultDate() { return modal.getAttribute('data-default-date') || todayLocal(); }
+
+        function updateDuration() {
+            var s = startTimeEl.value, e = endTimeEl.value;
+            if (!s || !e) { durBox.hidden = true; return; }
+            var diff = (parseInt(e.slice(0, 2), 10) * 60 + parseInt(e.slice(3, 5), 10)) - (parseInt(s.slice(0, 2), 10) * 60 + parseInt(s.slice(3, 5), 10));
+            durBox.hidden = false;
+            // Ende vor Beginn = Block über Mitternacht (endet am Folgetag)
+            var overnight = diff < 0;
+            if (overnight) { diff += 24 * 60; }
+            durBox.classList.toggle('wt-duration--invalid', diff <= 0);
+            durVal.textContent = diff <= 0 ? 'Ende muss nach Beginn liegen' : Math.floor(diff / 60) + ':' + pad(diff % 60) + ' h' + (overnight ? ' (bis Folgetag)' : '');
+        }
+
+        modal.addEventListener('show.bs.modal', function (event) {
+            var btn = event.relatedTarget;
+            if (!btn) { return; }
+            form.setAttribute('action', btn.getAttribute('data-action') || '');
+            form.querySelectorAll('button[type=submit]').forEach(function (b) { b.disabled = false; b.removeAttribute('aria-busy'); });
+            if (btn.getAttribute('data-mode') === 'edit') {
+                title.textContent = 'Eintrag bearbeiten';
+                var st = splitDT(btn.getAttribute('data-start')), en = splitDT(btn.getAttribute('data-end'));
+                dateEl.value = st[0] || defaultDate();
+                startTimeEl.value = st[1];
+                endTimeEl.value = en[1];
+                delBtn.setAttribute('formaction', btn.getAttribute('data-delete') || '');
+                delBtn.hidden = false;
+                endTimeEl.required = false;
+            } else {
+                title.textContent = 'Zeit eintragen';
+                dateEl.value = defaultDate();
+                startTimeEl.value = timeNow();
+                endTimeEl.value = '';
+                delBtn.removeAttribute('formaction');
+                delBtn.hidden = true;
+                endTimeEl.required = true;
+            }
+            updateDuration();
+        });
+
+        startTimeEl.addEventListener('input', updateDuration);
+        endTimeEl.addEventListener('input', updateDuration);
+        form.addEventListener('submit', function () {
+            var d = dateEl.value;
+            startHidden.value = (d && startTimeEl.value) ? (d + 'T' + startTimeEl.value) : '';
+            var endDay = d;
+            if (d && endTimeEl.value && startTimeEl.value && endTimeEl.value < startTimeEl.value) {
+                var n = new Date(d + 'T12:00:00'); n.setDate(n.getDate() + 1);
+                endDay = n.getFullYear() + '-' + pad(n.getMonth() + 1) + '-' + pad(n.getDate());
+            }
+            endHidden.value = (d && endTimeEl.value) ? (endDay + 'T' + endTimeEl.value) : '';
+        });
+    })();
+</script>

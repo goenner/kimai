@@ -9,6 +9,8 @@
 namespace KimaiPlugin\WorktimeBundle\Service;
 
 use App\Entity\User;
+use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\EntityManagerInterface;
 use KimaiPlugin\WorktimeBundle\Audit\AuditLogger;
 use KimaiPlugin\WorktimeBundle\Entity\AuditLog;
 use KimaiPlugin\WorktimeBundle\Entity\WorkBlock;
@@ -24,11 +26,74 @@ use KimaiPlugin\WorktimeBundle\Validator\WorkBlockValidator;
  */
 final class WorkBlockMutator
 {
+    /** Ausstempeln so kurz nach dem Einstempeln gilt als Doppelklick und wird ignoriert. */
+    public const PUNCH_MIN_SECONDS = 5;
+
     public function __construct(
         private readonly WorkBlockRepository $blocks,
         private readonly WorkBlockValidator $validator,
         private readonly AuditLogger $audit,
+        private readonly EntityManagerInterface $em,
     ) {
+    }
+
+    /**
+     * Stempeluhr ein/aus. Läuft in einer Transaktion mit Zeilensperre auf den Nutzer, damit
+     * Doppelklicks und parallele Requests nicht zwei offene Blöcke erzeugen.
+     *
+     * @param string|null $expect 'in' oder 'out' = beabsichtigte Aktion; passt der Zustand nicht, passiert nichts.
+     *                            null = umschalten (altes Verhalten).
+     *
+     * @return array{0: string, 1: string} Flash-Typ und Meldung
+     */
+    public function punch(User $user, ?string $expect, \DateTimeImmutable $now): array
+    {
+        /** @var array{0: string, 1: string} $result */
+        $result = $this->em->wrapInTransaction(function () use ($user, $expect, $now): array {
+            $this->em->lock($user, LockMode::PESSIMISTIC_WRITE);
+            $open = $this->blocks->findOpenBlock($user);
+
+            if ('in' === $expect && null !== $open) {
+                return ['warning', 'Du bist bereits eingestempelt.'];
+            }
+            if ('out' === $expect && null === $open) {
+                return ['warning', 'Du bist bereits ausgestempelt.'];
+            }
+
+            if (null !== $open) {
+                if ($now->getTimestamp() - $open->getStart()->getTimestamp() < self::PUNCH_MIN_SECONDS) {
+                    return ['warning', 'Ausstempeln ignoriert – du hast gerade erst eingestempelt.'];
+                }
+                $error = $this->validator->validateInterval($open->getStart(), $now, $now);
+                if (null === $error && [] !== $this->blocks->findOverlapping($user, $open->getStart(), $now, $open->getId())) {
+                    $error = 'Der Zeitraum überschneidet sich mit einer bestehenden Buchung.';
+                }
+                if (null !== $error) {
+                    return ['error', $error.' Bitte die laufende Buchung manuell korrigieren.'];
+                }
+
+                $open->setEnd($now);
+                $this->blocks->save($open);
+                $this->audit->log($user, $user, AuditLog::ACTION_PUNCH_OUT, 'work_block', $open->getId(), ['end' => $now->format('c')]);
+
+                return ['success', 'Ausgestempelt.'];
+            }
+
+            if ([] !== $this->blocks->findOverlapping($user, $now, $now->modify('+1 second'), null)) {
+                return ['error', 'Zu diesem Zeitpunkt gibt es bereits eine Buchung.'];
+            }
+
+            $block = new WorkBlock();
+            $block->setUser($user);
+            $block->setStart($now);
+            $block->setSource(WorkBlock::SOURCE_PUNCH);
+            $this->blocks->save($block);
+            $this->audit->log($user, $user, AuditLog::ACTION_PUNCH_IN, 'work_block', $block->getId(), ['start' => $now->format('c')]);
+
+            return ['success', 'Eingestempelt.'];
+        });
+
+        return $result;
     }
 
     /**
@@ -80,7 +145,9 @@ final class WorkBlockMutator
                 return 'Es gibt bereits eine laufende Buchung. Bitte zuerst beenden.';
             }
         }
-        if (null !== $end && [] !== $this->blocks->findOverlapping($target, $start, $end, $block->getId())) {
+        // offenes Ende: läuft unbegrenzt weiter, überschneidet also jeden späteren Block
+        $overlapEnd = $end ?? new \DateTimeImmutable('9999-12-31 00:00:00');
+        if ([] !== $this->blocks->findOverlapping($target, $start, $overlapEnd, $block->getId())) {
             return 'Der Zeitraum überschneidet sich mit einer bestehenden Buchung.';
         }
 
@@ -90,6 +157,7 @@ final class WorkBlockMutator
         ];
         $block->setStart($start);
         $block->setEnd($end);
+        $block->setNeedsReview(false); // korrigiert = geprüft
         $this->blocks->save($block);
 
         $this->audit->log($actor, $target, AuditLog::ACTION_BLOCK_EDIT, 'work_block', $block->getId(), [
